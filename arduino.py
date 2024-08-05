@@ -6,9 +6,13 @@ import socket
 import netifaces as ni
 import time
 
+import numpy as np
+
 from tkinter import filedialog, messagebox
 from serial.tools import list_ports
 
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -126,26 +130,24 @@ def select_file():
 arr_dist = []
 arr_acce = []
 
-fig = Figure(figsize=(5, 4), dpi=100)
-ax = fig.add_subplot(111)
+# fig = Figure(figsize=(5, 4), dpi=100)
+# ax = fig.add_subplot(111)
+
+fig, ax = plt.subplots()
 
 text_artist = None
 
-def plot_graph():
-    x = [1,2,3,4,5]
-    y = [5,10,15,20,25]
-    fig = Figure(figsize=(5,4), dpi=100)
-    ax = fig.add_subplot(111)
-    ax.plot(x,y)
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.draw()
-    canvas.get_tk_widget().grid(row=0,column=2, rowspan=11, sticky="SNEW")
+amplitud = []
+frecuencia = []
+
+duracion = 1
+ani = None
 
 def plot_graph_test():
     global text_artist
 
-    dist = dist_entry.get()
-    acce = acce_entry.get()
+    dist = amp_entry.get()
+    acce = freq_entry.get()
 
     if dist != '' or acce != '':
         
@@ -174,10 +176,73 @@ def plot_graph_test():
     else:
         messagebox.showinfo("Info", "Ingrese datos")
 
+
+def plot_graph_sen():
+    global text_artist, duracion, ani
+
+    amp = amp_entry.get()
+    freq = freq_entry.get()
+    dur = dur_entry.get()
+
+    if amp != '' and freq != '' and dur != '':
+        if is_float(amp) and is_float(freq) and is_float(dur):
+            amplitud.append(float(amp))
+            frecuencia.append(float(freq))
+            duracion = float(dur)
+            if ani is not None:
+                ani.event_source.stop() 
+            animate()
+        else:
+            messagebox.showinfo("Info", "Datos deben ser Numeros")
+    else:
+        messagebox.showinfo("Info", "Ingrese datos")
+
+def init():
+    ax.clear()
+    # ax.set_xlim(0, 2 * np.pi * duracion)
+    ax.set_xlim(0, duracion)
+    if amplitud:
+        ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+    ax.set_xlabel("Tiempo (s)")
+    ax.set_ylabel("Amplitud")
+    ax.grid(True)
+    return ax,
+
+def update(frame):
+    if not amplitud or not frecuencia:
+        return ax,
+    # x = np.linspace(0, 2 * np.pi * duracion, 1000)
+    x = np.linspace(0, duracion, 1000)
+    y = amplitud[-1] * np.sin(2 * np.pi * frecuencia[-1] * (x - 0.01 * frame))
+    ax.clear()
+    ax.plot(x, y, 'b-')
+    # ax.set_xlim(0, 2 * np.pi * duracion)
+    ax.set_xlim(0, duracion)
+    if amplitud:
+        ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+    ax.set_xlabel("Tiempo (s)")
+    ax.set_ylabel("Amplitud")
+    ax.grid(True)
+    return ax,
+
+def animate():
+    global ani
+    frames = int(duracion * 100)
+    ani = animation.FuncAnimation(fig, update, init_func=init, frames=frames, interval=20, blit=False)
+    canvas.draw()
+
+def stop_animation():
+    global ani
+    if ani is not None:
+        ani.event_source.stop()
+
+
+
+
 def plot_delete_lastValue():
     global text_artist
 
-    if arr_dist == [] and dist_entry == []:
+    if arr_dist == [] and amp_entry == []:
          messagebox.showinfo("Info", "No hay Datos")
     else:
         arr_dist.pop()
@@ -266,10 +331,44 @@ def on_listbox_select(event):
 
 
 
+def on_window_move(event):
+    global ani
+
+    port_entry.delete(0, tk.END)
+    sub_entry.delete(0, tk.END)
+
+    new_x = root.winfo_x()
+    new_y = root.winfo_y()
+
+    if new_x != root.winfo_x() or new_y != root.winfo_y():
+        if ani is not None:
+            ani.event_source.stop()
+    else:
+        if ani is not None:
+            ani.event_source.start()
+
+    sub_entry.insert(0, root.winfo_x())
+    port_entry.insert(0, root.winfo_y())
+
+   
+
+    # if new_x != prev_x or new_y != prev_y:
+    #     ani.event_source.stop()  # Detener la animación
+    # else:
+    #     ani.event_source.start()  # Reanudar la animación
+
+    # prev_x = new_x
+    # prev_y = new_y
+
+
+
+# ----- Tool Kit ---------
+
 list_interfaces()
 
 root = tk.Tk()
 root.title("NCN | ShakeTable Controller")
+
 
 ancho_pantalla = root.winfo_screenwidth() 
 alto_pantalla = root.winfo_screenheight() 
@@ -339,30 +438,42 @@ select_button.grid(row=6, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
 # -------------------
 
-tk.Label(root, text="Distancia (cm) ").grid(row=7, column=0, sticky="w", padx=5, pady=5)
-dist_entry = tk.Entry(root)
-dist_entry.grid(row=7, column=1, sticky="ew", padx=5, pady=5)
+tk.Label(root, text="Amplitud ").grid(row=7, column=0, sticky="w", padx=5, pady=5)
+amp_entry = tk.Entry(root)
+amp_entry.grid(row=7, column=1, sticky="ew", padx=5, pady=5)
 
-tk.Label(root, text="Aceleración (cm/s2) ").grid(row=8, column=0, sticky="w", padx=5, pady=5)
-acce_entry = tk.Entry(root)
-acce_entry.grid(row=8, column=1, sticky="ew", padx=5, pady=5)
+tk.Label(root, text="Frecuencia (Hz)").grid(row=8, column=0, sticky="w", padx=5, pady=5)
+freq_entry = tk.Entry(root)
+freq_entry.grid(row=8, column=1, sticky="ew", padx=5, pady=5)
+
+tk.Label(root, text="Duracion (seg)").grid(row=9, column=0, sticky="w", padx=5, pady=5)
+dur_entry = tk.Entry(root)
+dur_entry.grid(row=9, column=1, sticky="ew", padx=5, pady=5)
 
 # -------------------------
 
-plot_button = tk.Button(root, text="Añadir Datos", command=plot_graph_test)
-plot_button.grid(row=9, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
-
-plot_button = tk.Button(root, text="Borrar ultimo", command=plot_delete_lastValue)
+plot_button = tk.Button(root, text="Iniciar", command=plot_graph_sen)
 plot_button.grid(row=10, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
-plot_button = tk.Button(root, text="Borrar Todo", command=plot_delete_all)
+plot_button = tk.Button(root, text="Pausar", command=stop_animation)
 plot_button.grid(row=11, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
 plot_button = tk.Button(root, text="Enviar Datos")
 plot_button.grid(row=12, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
+prev_x = 0
+prev_y = 0
+
+prev_x = root.winfo_x()
+prev_y = root.winfo_y()
+
+root.bind("<Configure>", on_window_move)
 
 canvas = FigureCanvasTkAgg(fig, master=root)
 canvas.get_tk_widget().grid(row=0,column=2, rowspan=13, sticky="SNEW")
+ax.plot([], [], lw=2)
+ax.set_xlim(0 , 10)
+ax.set_ylim(-1, 1)
+# canvas.draw()
 
 root.mainloop()

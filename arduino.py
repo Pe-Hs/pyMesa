@@ -133,16 +133,6 @@ arr_acce = []
 # fig = Figure(figsize=(5, 4), dpi=100)
 # ax = fig.add_subplot(111)
 
-fig, ax = plt.subplots()
-
-text_artist = None
-
-amplitud = []
-frecuencia = []
-
-duracion = 1
-ani = None
-
 def plot_graph_test():
     global text_artist
 
@@ -184,11 +174,11 @@ def plot_graph_sen():
     freq = freq_entry.get()
     dur = dur_entry.get()
 
-    if amp != '' and freq != '' and dur != '':
-        if is_float(amp) and is_float(freq) and is_float(dur):
+    if amp != '' and freq != '' and (dur != '' or infinite_duration.get()):
+        if is_float(amp) and is_float(freq) and (is_float(dur) or infinite_duration.get()):
             amplitud.append(float(amp))
             frecuencia.append(float(freq))
-            duracion = float(dur)
+            duracion = float(dur) if not infinite_duration.get() else 10
             if ani is not None:
                 ani.event_source.stop() 
             animate()
@@ -200,7 +190,8 @@ def plot_graph_sen():
 def init():
     ax.clear()
     # ax.set_xlim(0, 2 * np.pi * duracion)
-    ax.set_xlim(0, duracion)
+    # ax.set_xlim(0, duracion)
+    ax.set_xlim(0, 10 if infinite_duration.get() else duracion)
     if amplitud:
         ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
     ax.set_xlabel("Tiempo (s)")
@@ -212,12 +203,14 @@ def update(frame):
     if not amplitud or not frecuencia:
         return ax,
     # x = np.linspace(0, 2 * np.pi * duracion, 1000)
-    x = np.linspace(0, duracion, 1000)
+    # x = np.linspace(0, duracion, 1000)
+    x = np.linspace(0, 10 if infinite_duration.get() else duracion, 1000)
     y = amplitud[-1] * np.sin(2 * np.pi * frecuencia[-1] * (x - 0.01 * frame))
     ax.clear()
     ax.plot(x, y, 'b-')
     # ax.set_xlim(0, 2 * np.pi * duracion)
-    ax.set_xlim(0, duracion)
+    # ax.set_xlim(0, duracion)
+    ax.set_xlim(0, duracion if not infinite_duration.get() else frame * 0.01)
     if amplitud:
         ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
     ax.set_xlabel("Tiempo (s)")
@@ -227,16 +220,20 @@ def update(frame):
 
 def animate():
     global ani
-    frames = int(duracion * 100)
-    ani = animation.FuncAnimation(fig, update, init_func=init, frames=frames, interval=20, blit=False)
+    # frames = int(duracion * 100)
+    frames = None if infinite_duration.get() else int(duracion * 200)
+    ani = animation.FuncAnimation(fig, update, init_func=init, frames=frames, interval=1, blit=False, cache_frame_data=False)
     canvas.draw()
+
+def start_animation():
+    global ani
+    if ani is not None:
+        ani.event_source.start()
 
 def stop_animation():
     global ani
     if ani is not None:
         ani.event_source.stop()
-
-
 
 
 def plot_delete_lastValue():
@@ -334,33 +331,45 @@ def on_listbox_select(event):
 def on_window_move(event):
     global ani
 
-    port_entry.delete(0, tk.END)
-    sub_entry.delete(0, tk.END)
-
     new_x = root.winfo_x()
     new_y = root.winfo_y()
 
     if new_x != root.winfo_x() or new_y != root.winfo_y():
         if ani is not None:
             ani.event_source.stop()
-    else:
-        if ani is not None:
-            ani.event_source.start()
-
-    sub_entry.insert(0, root.winfo_x())
-    port_entry.insert(0, root.winfo_y())
-
-   
-
-    # if new_x != prev_x or new_y != prev_y:
-    #     ani.event_source.stop()  # Detener la animación
     # else:
-    #     ani.event_source.start()  # Reanudar la animación
+    #    if ani is not None:
+    #        ani.event_source.start()
 
-    # prev_x = new_x
-    # prev_y = new_y
+    # sub_entry.insert(0, root.winfo_x())
+    # port_entry.insert(0, root.winfo_y())
 
 
+def create_form_dialog(root):
+    dialog = tk.Toplevel(root)
+    dialog.title("Formulario")
+
+    tk.Label(dialog, text="Nombre:").grid(row=0, column=0, padx=10, pady=10)
+    tk.Label(dialog, text="Edad:").grid(row=1, column=0, padx=10, pady=10)
+
+    name_entry = tk.Entry(dialog)
+    age_entry = tk.Entry(dialog)
+
+    name_entry.grid(row=0, column=1, padx=10, pady=10)
+    age_entry.grid(row=1, column=1, padx=10, pady=10)
+
+    def on_submit():
+        result = {
+            "name": name_entry.get(),
+            "age": age_entry.get()
+        }
+        dialog.destroy()  
+
+    submit_button = tk.Button(dialog, text="Enviar", command=on_submit)
+    submit_button.grid(row=2, columnspan=2, pady=10)
+
+def show_form_dialog():
+    create_form_dialog(root)
 
 # ----- Tool Kit ---------
 
@@ -374,13 +383,13 @@ ancho_pantalla = root.winfo_screenwidth()
 alto_pantalla = root.winfo_screenheight() 
 
 ancho_ventana = 900
-alto_ventana = 600
+alto_ventana = 650
 
 posicion_x = (ancho_pantalla - ancho_ventana) // 2 
 posicion_y = (alto_pantalla - alto_ventana) // 2
 
 root.geometry(f"{ancho_ventana}x{alto_ventana}+{posicion_x}+{posicion_y}")
-root.minsize(800, 600)
+root.minsize(800, 650)
 
 root.grid_columnconfigure(2, weight=1)    
 
@@ -395,12 +404,25 @@ file_menu.add_command(label="Abrir", command=select_file)
 edit_menu = tk.Menu(file_menu, tearoff=0)
 file_menu.add_cascade(label="Conectar..", menu=edit_menu)
 
-edit_menu.add_command(label="MODO INTERNET", command=lambda: print("Cut selected"))
+edit_menu.add_command(label="MODO INTERNET", command=show_form_dialog)
 edit_menu.add_command(label="USB", command=lambda: print("Copy selected"))
 edit_menu.add_command(label="MODO WIFI", command=lambda: print("Paste selected"))
 
 file_menu.add_separator()  
 file_menu.add_command(label="Salir", command=exit_application)
+
+# -------------------
+
+fig, ax = plt.subplots()
+
+text_artist = None
+
+amplitud = []
+frecuencia = []
+
+duracion = 1
+ani = None
+infinite_duration = tk.BooleanVar(value=False)
 
 # --------------------
 
@@ -438,7 +460,7 @@ select_button.grid(row=6, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
 # -------------------
 
-tk.Label(root, text="Amplitud ").grid(row=7, column=0, sticky="w", padx=5, pady=5)
+tk.Label(root, text="Amplitud (mm)").grid(row=7, column=0, sticky="w", padx=5, pady=5)
 amp_entry = tk.Entry(root)
 amp_entry.grid(row=7, column=1, sticky="ew", padx=5, pady=5)
 
@@ -450,16 +472,29 @@ tk.Label(root, text="Duracion (seg)").grid(row=9, column=0, sticky="w", padx=5, 
 dur_entry = tk.Entry(root)
 dur_entry.grid(row=9, column=1, sticky="ew", padx=5, pady=5)
 
+infinite_duration_check = tk.Checkbutton(root, text="Duración Infinita", variable=infinite_duration)
+infinite_duration_check.grid(row=10, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
 # -------------------------
 
 plot_button = tk.Button(root, text="Iniciar", command=plot_graph_sen)
-plot_button.grid(row=10, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
-
-plot_button = tk.Button(root, text="Pausar", command=stop_animation)
 plot_button.grid(row=11, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
 plot_button = tk.Button(root, text="Enviar Datos")
 plot_button.grid(row=12, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+# -------------------------
+
+plot_button = tk.Button(root, text="Continuar", command=start_animation)
+plot_button.grid(row=13, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+plot_button = tk.Button(root, text="Pausar", command=stop_animation)
+plot_button.grid(row=14, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+plot_button = tk.Button(root, text="Pausar", command=stop_animation)
+plot_button.grid(row=15, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
+# -------------------------
 
 prev_x = 0
 prev_y = 0

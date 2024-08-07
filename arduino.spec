@@ -5,7 +5,7 @@ a = Analysis(
     ['arduino.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('img/*', 'img')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

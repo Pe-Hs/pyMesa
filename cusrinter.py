@@ -23,6 +23,17 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 #     image = image.resize(size, Image.Resampling.LANCZOS)  # Redimensionar la imagen
 #     return ImageTk.PhotoImage(image)
 
+def open_file(event=None):
+    filepath = filedialog.askopenfilename()
+
+def select_file():
+    filepath = filedialog.askopenfilename()
+    # if filepath:
+    #     port = port_entry.get()
+    #     baudrate = int(sub_entry.get())
+    #     send_file_to_arduino(port, baudrate, filepath)
+
+
 def load_and_resize_image(file_path):
     return Image.open(resource_path(file_path))
 
@@ -126,7 +137,7 @@ def update(frame):
 
     ax.clear()
 
-    ax.plot(x, y, 'b-')
+    ax.plot(x, y, '#ee7218')
     if inf:
         ax.set_xlim(0, min(max_time * 2, frame * 0.1))  
     else:
@@ -203,7 +214,7 @@ def on_window_configure(event):
         animating = False
         ani.event_source.stop()
     
-    root.after(500, restart_animation)
+    root.after(800, restart_animation)
 
 def restart_animation():
     global animating
@@ -442,6 +453,12 @@ def update_freq(value):
     freq_label.configure(text=f"{float(value):.2f} Hz")
     # plot_graph_sen()
 
+# -------------------------------
+
+def show_frame(frame):
+    slider_control.grid_forget()
+    frame.grid(row=0, column=0, sticky="nsew")
+
 # --------------------------------------------------------------------------
 
 root = customtkinter.CTk()
@@ -467,9 +484,8 @@ infinite_duration = customtkinter.BooleanVar(value=False)
 
 open_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-open.png"),    size=(32,32))
 save_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-save.png"),    size=(32,32))
-
-conn_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-connect.png"),    size=(32,32))
-
+dsen_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-send.png"),    size=(32,32))
+conn_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-connect.png"), size=(32,32))
 
 back_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-back.png"),    size=(32,32))
 next_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-next.png"),    size=(32,32))
@@ -513,11 +529,11 @@ root.grid_columnconfigure(1, weight=1)
 frame = customtkinter.CTkFrame(root)
 frame.grid(row=0, column=0, rowspan=9, sticky="ns")
 
-frame.grid_rowconfigure(7, weight=1)
+frame.grid_rowconfigure(8, weight=1)
 
 # -------------------------
 
-open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="")
+open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=select_file)
 open_button.grid(row=0, column=0, sticky="n")
 
 # -------------------------
@@ -545,10 +561,20 @@ quake_button.grid(row=5, column=0, sticky="n")
 
 # -------------------------
 
-frame.grid_rowconfigure(7, weight=1)
+separator_3 = customtkinter.CTkFrame(frame, width=1, height=2, fg_color="#d6d6d6")
+separator_3.grid(row=6, column=0, padx=5, pady=2, sticky="we")
+
+# -------------------------
+
+send_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=dsen_img, text="")
+send_button.grid(row=7, column=0, sticky="n")
+
+# -------------------------
+
+frame.grid_rowconfigure(8, weight=1)
 
 exit_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=help_img, text="")
-exit_button.grid(row=8, column=0, sticky="s") 
+exit_button.grid(row=9, column=0, sticky="s") 
 
 # -------------------------
 
@@ -565,23 +591,23 @@ root.bind("<Configure>", on_window_configure)
 graph_control = customtkinter.CTkFrame(root)
 graph_control.grid(row=1, column=1, sticky="ew")
 
-back_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=back_img, text="", command=prev_frame)
-back_button.grid(row=0, column=0, sticky="n")
+# back_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=back_img, text="", command=prev_frame)
+# back_button.grid(row=0, column=0, sticky="n")
 
 play_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_animation)
-play_button.grid(row=0, column=1, sticky="n")
+play_button.grid(row=0, column=0, sticky="n")
 
 pause_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="", command=stop_animation)
-pause_button.grid(row=0, column=2, sticky="n")
+pause_button.grid(row=0, column=1, sticky="n")
 
-next_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=next_img, text="", command=next_frame)
-next_button.grid(row=0, column=3, sticky="n")
+# next_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=next_img, text="", command=next_frame)
+# next_button.grid(row=0, column=3, sticky="n")
 
 reset_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
-reset_button.grid(row=0, column=4, sticky="n")
+reset_button.grid(row=0, column=2, sticky="n")
 
-save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
-save_button.grid(row=0, column=5, sticky="n")
+save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="", command=lambda: show_frame(slider_control))
+save_button.grid(row=0, column=3, sticky="n")
 
 # ---------------------------
 
@@ -596,7 +622,7 @@ amp_slider.grid(row=0, column=1)
 
 customtkinter.CTkLabel(slider_control, text="Frecuencia (Hz): " , font=bold_font ).grid(row=0, column=2)
 
-fre_slider = customtkinter.CTkSlider(slider_control, from_=1, to=10, number_of_steps=1000, command=update_freq)
+fre_slider = customtkinter.CTkSlider(slider_control, from_=0, to=10, number_of_steps=1000, command=update_freq)
 fre_slider.grid(row=0, column=3)
 
 # ---------------------------

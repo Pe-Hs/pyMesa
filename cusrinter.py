@@ -433,8 +433,9 @@ def update_ampl(value):
         "dur" : 10,  
         "inf" : True
     }
-
+    print(result_data)
     amp_label.configure(text=f"{int(value)} mm")
+    send_info_table()
     # plot_graph_sen()
 
 def update_freq(value):
@@ -449,8 +450,9 @@ def update_freq(value):
         "dur" : 10,  
         "inf" : True
     }
-
+    print(result_data)
     freq_label.configure(text=f"{float(value):.2f} Hz")
+    send_info_table()
     # plot_graph_sen()
 
 # -------------------------------
@@ -458,6 +460,32 @@ def update_freq(value):
 def show_frame(frame):
     slider_control.grid_forget()
     frame.grid(row=0, column=0, sticky="nsew")
+
+# -------------------------------
+
+def send_info_table():
+    global result_data, result_conn
+    if result_conn is not None and result_data is not None:
+        try:
+            ip = result_conn["ip"]
+            response = requests.post(f'http://{ip}', json=result_data)
+            
+            if response.status_code == 200:
+                d = ''
+                #messagebox.showinfo("Enviado", f"Los datos se enviaron Correctamente")
+            else:
+                d = ''
+                #messagebox.showwarning("Advertencia", f"La IP {ip} respondió con estado {response.status_code}.")
+
+        except requests.Timeout:
+            d = ''
+            #messagebox.showwarning("Advertencia", f"La solicitud a {ip} superó el tiempo de espera")
+        except requests.RequestException as e:
+            d = ''
+            #messagebox.showerror("Error", f"Error al hacer la solicitud a {ip}")
+    else:
+        d = ''
+        #messagebox.showwarning("Advertencia", "Verificar medios de Conexion o datos")
 
 # --------------------------------------------------------------------------
 

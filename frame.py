@@ -11,9 +11,13 @@ frame_left.grid(row=0, column=0, sticky="ns")
 frame_right = ctk.CTkFrame(root)
 frame_right.grid(row=0, column=1, sticky="nsew")
 
-# Configurar columnas para expandirse
+# Configurar columnas y filas para expandirse
 root.grid_columnconfigure(1, weight=1)
 root.grid_rowconfigure(0, weight=1)
+
+# Configurar frame_right para expandirse
+frame_right.grid_rowconfigure(0, weight=1)
+frame_right.grid_columnconfigure(0, weight=1)
 
 # Crear diferentes frames para la parte derecha
 frame1 = ctk.CTkFrame(frame_right, fg_color="lightblue")

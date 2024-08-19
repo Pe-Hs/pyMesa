@@ -18,10 +18,8 @@ import matplotlib.animation as animation
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# def load_and_resize_image(file_path, size):
-#     image = Image.open(resource_path(file_path))
-#     image = image.resize(size, Image.Resampling.LANCZOS)  # Redimensionar la imagen
-#     return ImageTk.PhotoImage(image)
+# ------------------------------------
+
 
 def open_file(event=None):
     filepath = filedialog.askopenfilename()
@@ -213,14 +211,13 @@ def on_window_configure(event):
     if animating and ani is not None:
         animating = False
         ani.event_source.stop()
-    
     root.after(800, restart_animation)
 
 def restart_animation():
     global animating
     if not animating and ani is not None:
         animating = True
-        ani.event_source.start()
+        # ani.event_source.start()
 
 def next_frame():
     global frame_index
@@ -459,7 +456,7 @@ def show_frame(frame):
     slider_control.grid_forget()
     frame.grid(row=0, column=0, sticky="nsew")
 
-# --------------------------------------------------------------------------
+# ------------------------------------
 
 root = customtkinter.CTk()
 # root.overrideredirect(True)
@@ -479,8 +476,6 @@ duracion = 1
 ani = None
 infinite_duration = customtkinter.BooleanVar(value=False)
 
-# customtkinter.set_appearance_mode("light") 
-# customtkinter.set_default_color_theme("blue")
 
 open_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-open.png"),    size=(32,32))
 save_img  = customtkinter.CTkImage(load_and_resize_image("./img/dark-save.png"),    size=(32,32))
@@ -520,20 +515,27 @@ root.minsize(800, 500)
 
 bold_font = customtkinter.CTkFont(weight="bold")
 
-# -------------------------
-
-
-root.grid_rowconfigure(0, weight=1)  
 root.grid_columnconfigure(1, weight=1)
+root.grid_rowconfigure(0, weight=1)
+
+# ---------------------------------------------------------------------------------
 
 frame = customtkinter.CTkFrame(root)
 frame.grid(row=0, column=0, rowspan=9, sticky="ns")
 
 frame.grid_rowconfigure(8, weight=1)
 
-# -------------------------
+# ------------------------------------
 
-open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=select_file)
+frame_right = customtkinter.CTkFrame(root)
+frame_right.grid(row=0, column=1,rowspan=9, sticky="nsew")
+
+frame_right.grid_rowconfigure(0, weight=1)
+frame_right.grid_columnconfigure(0, weight=1)
+
+# ------------------------------------ 
+
+open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="")
 open_button.grid(row=0, column=0, sticky="n")
 
 # -------------------------
@@ -543,7 +545,7 @@ separator.grid(row=1, column=0, padx=5, pady=2, sticky="we")
 
 # -------------------------
 
-conn_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=conn_img, text="", command=show_connect_dialog)
+conn_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=conn_img, text="")
 conn_button.grid(row=2, column=0, sticky="n")
 
 # -------------------------
@@ -553,10 +555,10 @@ separator_2.grid(row=3, column=0, padx=5, pady=2, sticky="we")
 
 # -------------------------
 
-harm_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=contr_img, text="", command=show_form_dialog)
+harm_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=contr_img, text="", command=lambda: show_frame(frame1))
 harm_button.grid(row=4, column=0, sticky="n")
 
-quake_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=quake_img, text="")
+quake_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=quake_img, text="", command=lambda: show_frame(frame2))
 quake_button.grid(row=5, column=0, sticky="n")
 
 # -------------------------
@@ -576,43 +578,43 @@ frame.grid_rowconfigure(8, weight=1)
 exit_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=help_img, text="")
 exit_button.grid(row=9, column=0, sticky="s") 
 
-# -------------------------
+# -----------------------------------------------------------------------------------------
+
+frame1 = customtkinter.CTkFrame(frame_right)
+frame2 = customtkinter.CTkFrame(frame_right)
+
+label2 = customtkinter.CTkLabel(frame2, text="Frame 2")
+label2.grid(row=0, column=0)
+
+# ----------------------------
 
 animating = True
 frame_index = 0
 
-canvas = FigureCanvasTkAgg(fig, master=root)
-canvas.get_tk_widget().grid(row=0, column=1, sticky="SNEW")
-
-root.bind("<Configure>", on_window_configure)
+canvas = FigureCanvasTkAgg(fig, master=frame1)
+canvas.get_tk_widget().grid(row=0, column=0, sticky="SNEW")
 
 # ---------------------------
 
-graph_control = customtkinter.CTkFrame(root)
-graph_control.grid(row=1, column=1, sticky="ew")
-
-# back_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=back_img, text="", command=prev_frame)
-# back_button.grid(row=0, column=0, sticky="n")
+graph_control = customtkinter.CTkFrame(frame1)
+graph_control.grid(row=1, column=0, sticky="ew")
 
 play_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_animation)
-play_button.grid(row=0, column=0, sticky="n")
+play_button.grid(row=0, column=0)
 
 pause_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="", command=stop_animation)
-pause_button.grid(row=0, column=1, sticky="n")
-
-# next_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=next_img, text="", command=next_frame)
-# next_button.grid(row=0, column=3, sticky="n")
+pause_button.grid(row=0, column=1)
 
 reset_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
-reset_button.grid(row=0, column=2, sticky="n")
+reset_button.grid(row=0, column=2)
 
 save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="", command=lambda: show_frame(slider_control))
-save_button.grid(row=0, column=3, sticky="n")
+save_button.grid(row=0, column=3)
 
 # ---------------------------
 
-slider_control = customtkinter.CTkFrame(root)
-slider_control.grid(row=2, column=1, sticky="ew")
+slider_control = customtkinter.CTkFrame(frame1)
+slider_control.grid(row=2, column=0, sticky="ew")
 
 customtkinter.CTkLabel(slider_control, text="Amplitud (mm): ", font=bold_font ).grid(row=0, column=0)
 
@@ -625,7 +627,7 @@ customtkinter.CTkLabel(slider_control, text="Frecuencia (Hz): " , font=bold_font
 fre_slider = customtkinter.CTkSlider(slider_control, from_=0, to=10, number_of_steps=1000, command=update_freq)
 fre_slider.grid(row=0, column=3)
 
-# ---------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 footer = customtkinter.CTkFrame(root)
 footer.grid(row=3, column=1, sticky="ew")
@@ -674,31 +676,14 @@ result_conn = None
 
 # ---------------------------
 
+def show_frame(frame):
+    frame1.grid_forget()
+    frame2.grid_forget()
+    frame.grid(row=0, column=0, sticky="ewns")
+    frame.grid_columnconfigure(0, weight=1)
+
+show_frame(frame1)
+
+root.bind("<Configure>", on_window_configure)
+
 root.mainloop()
-
-
-# # -------------------------
-
-# frame_control = customtkinter.CTkFrame(root, corner_radius=0)
-# frame_control.grid(row=0, column=1, sticky="ew")
-
-# frame_control.bind("<Button-1>", on_drag_start)
-# frame_control.bind("<B1-Motion>", lambda event: on_drag_motion(event, root))
-
-# # -------------------------
-
-# minim_button = customtkinter.CTkButton(frame_control, width=55, height=32, corner_radius=0, fg_color="transparent", text="-", command=root.iconify)
-# minim_button.grid(row=0, column=0, sticky="e")
-
-# maxim_button = customtkinter.CTkButton(frame_control, width=55, height=32, corner_radius=0, fg_color="transparent", text="+",  command=lambda: toggle_maximize_restore(root, maxim_button))
-# maxim_button.grid(row=0, column=1, sticky="e")
-
-# close_button = customtkinter.CTkButton(frame_control, width=55, height=32, corner_radius=0, fg_color="transparent", hover_color="#e81123", text="x", command=root.destroy)
-# close_button.grid(row=0, column=3, sticky="e")
-
-# frame_control.grid_columnconfigure(0, weight=1)
-# frame_control.grid_columnconfigure(1, weight=0)
-# frame_control.grid_columnconfigure(2, weight=0)
-# frame_control.grid_columnconfigure(3, weight=0)
-
-# # -------------------------

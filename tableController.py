@@ -452,9 +452,9 @@ def update_freq(value):
 
 # -------------------------------
 
-def show_frame(frame):
-    slider_control.grid_forget()
-    frame.grid(row=0, column=0, sticky="nsew")
+# def show_frame(frame):
+#     slider_control.grid_forget()
+#     frame.grid(row=0, column=0, sticky="nsew")
 
 # ------------------------------------
 
@@ -505,13 +505,13 @@ ancho_pantalla = root.winfo_screenwidth()
 alto_pantalla = root.winfo_screenheight() 
 
 ancho_ventana = 850
-alto_ventana = 500
+alto_ventana = 600
 
 posicion_x = (ancho_pantalla - ancho_ventana) // 2 
 posicion_y = (alto_pantalla - alto_ventana) // 2
 
 root.geometry(f"{ancho_ventana}x{alto_ventana}+{posicion_x}+{posicion_y}")
-root.minsize(800, 500)
+root.minsize(800, 600)
 
 bold_font = customtkinter.CTkFont(weight="bold")
 
@@ -592,12 +592,12 @@ animating = True
 frame_index = 0
 
 canvas = FigureCanvasTkAgg(fig, master=frame1)
-canvas.get_tk_widget().grid(row=0, column=0, sticky="SNEW")
+canvas.get_tk_widget().grid(row=0, column=0, sticky="nswe")
 
 # ---------------------------
 
 graph_control = customtkinter.CTkFrame(frame1)
-graph_control.grid(row=1, column=0, sticky="ew")
+graph_control.grid(row=1, column=0, sticky="nswe")
 
 play_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_animation)
 play_button.grid(row=0, column=0)
@@ -608,13 +608,13 @@ pause_button.grid(row=0, column=1)
 reset_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
 reset_button.grid(row=0, column=2)
 
-save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="", command=lambda: show_frame(slider_control))
+save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
 save_button.grid(row=0, column=3)
 
 # ---------------------------
 
 slider_control = customtkinter.CTkFrame(frame1)
-slider_control.grid(row=2, column=0, sticky="ew")
+slider_control.grid(row=2, column=0, sticky="nswe")
 
 customtkinter.CTkLabel(slider_control, text="Amplitud (mm): ", font=bold_font ).grid(row=0, column=0)
 
@@ -681,6 +681,9 @@ def show_frame(frame):
     frame2.grid_forget()
     frame.grid(row=0, column=0, sticky="ewns")
     frame.grid_columnconfigure(0, weight=1)
+    frame.grid_rowconfigure(0, weight=1)
+    frame.grid_rowconfigure(1, weight=0)
+    frame.grid_rowconfigure(2, weight=1)
 
 show_frame(frame1)
 

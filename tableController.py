@@ -81,6 +81,7 @@ def max_abs_value(array):
         if abs(x) == max_abs:
             return x
 
+# -------------------------------------------
 
 def plot_graph_sen():
     global text_artist, duracion, ani
@@ -169,27 +170,41 @@ def animate():
     # canvas.draw()
 
 def start_animation():
-    global ani, result_data
+    global ani, result_data, result_conn
 
     amp = str(amp_slider.get())
+
+    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
+
+    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
+
     freq = str(fre_slider.get())
+
+    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
+        "freq": f"{float(m_speed):.2f}",
         "dur" : 10,  
         "inf" : True
     }
 
-    plot_graph_sen()
-    if ani is not None:
-        canvas.draw()
-        ani.event_source.start()
+    send_info_table()
 
+    if conn_estab:
+        plot_graph_sen()
+
+        if ani is not None:
+            canvas.draw()
+            ani.event_source.start()
+    else:
+        return
+    
 def stop_animation():
     global ani
     if ani is not None:
         ani.event_source.stop()
+    pause_loop()
 
 def reset_graph():
     global ani, ax, result_data, amplitud
@@ -407,9 +422,11 @@ def check_result_data():
             amp_label.configure(text=f"{float(result_data["amp"])} mm")
             freq_label.configure(text=f"{float(result_data["freq"])} hz")
             if result_data["inf"]:
-                dura_label.configure(text="Infinito")
+                d = ''
+                # dura_label.configure(text="Infinito")
             else:
-                dura_label.configure(text=f"{float(result_data['dur'])} seg")
+                d = ''
+                # dura_label.configure(text=f"{float(result_data['dur'])} seg")
             plot_graph_sen()
         except tk.TclError as e:
             print(f"Error al actualizar las etiquetas: {e}")
@@ -422,35 +439,457 @@ def update_ampl(value):
     global ani, result_data
 
     amp = str(amp_slider.get())
+
+    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
+
+    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
+
     freq = str(fre_slider.get())
+
+    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
+        "freq": f"{float(m_speed):.2f}",
         "dur" : 10,  
         "inf" : True
     }
 
-    amp_label.configure(text=f"{int(value)} mm")
+    send_info_table()
+
+    amp_label.configure(text=f"{int(m_dist)} mm")
     # plot_graph_sen()
 
 def update_freq(value):
     global ani, result_data
 
     amp = str(amp_slider.get())
+
+    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
+
+    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
+
     freq = str(fre_slider.get())
+
+    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
+        "freq": f"{float(m_speed):.2f}",
         "dur" : 10,  
         "inf" : True
     }
 
-    freq_label.configure(text=f"{float(value):.2f} Hz")
+    send_info_table()
+
+    freq_label.configure(text=f"{float(m_speed):.2f} Hz")
     # plot_graph_sen()
 
+def calibrate_slider(val, in_min, in_max, out_min, out_max):
+    return (float(val) - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
 # -------------------------------
+
+def get_files_arduino():
+    global result_data, result_conn, result_file
+    try:
+        if not result_conn:
+            messagebox.showwarning("Advertencia", "No se puede establecer conexion o no ingreso IP")
+            return
+        else:
+            ip = result_conn["ip"]
+            response = requests.get(f'http://{ip}')
+
+            if response.status_code == 200:
+                file_list_response = response.json()
+                result_file = response.json()
+
+                file_list.delete(0, tk.END)
+
+                for file in file_list_response:
+                    file_list.insert(tk.END, f'{file["filename"]}')
+            else:
+                print(response)
+                return
+
+    except:
+        messagebox.showwarning("Advertencia", "No se pudo obtener lista de Archivos")
+
+def on_listbox_select_OG(event):
+    global result_txt, result_conn, result_file
+
+    seleccion = file_list.curselection()
+
+    fileSelName = file_list.get(seleccion)
+
+    obj_select = None
+
+    for obj in result_file:
+        if obj["filename"] == str(fileSelName):
+            obj_select = obj
+            break
+    
+    last_index = 0
+
+    if not result_conn and not result_file:
+        messagebox.showwarning("Advertencia", "No se puede establecer conexion o no ingreso IP")
+        return
+    
+    if seleccion:
+        file_name = file_list.get(seleccion)
+        ip = result_conn["ip"]
+
+        loop_req = int(obj_select["size"]) // 5000
+
+        send_req = {
+            "filename": file_name,
+            "limit": 5000
+        }
+
+        response = requests.post(f'http://{ip}', json=send_req)
+        
+        if response.status_code == 200:
+            req_resp = response.json()
+            result_txt = req_resp["data"]
+
+            for i in range(loop_req):
+                send_req = {
+                    "filename" : file_name,
+                    "limit" : 5000,
+                    "index" : 5000 * (i+1),
+                }
+
+                response = requests.post(f'http://{ip}', json=send_req)
+                if response.status_code == 200:
+                    req_resp = response.json()
+                    result_txt += req_resp["data"]
+                    last_index = req_resp["endIndex"]
+                else:
+                    result_txt += ""
+
+            send_req = {
+                "filename": file_name,
+                "limit" : 5000,
+                "index" : last_index,
+            } 
+
+            response = requests.post(f'http://{ip}', json=send_req)
+
+            if response.status_code == 200:
+                req_resp = response.json()
+                result_txt += req_resp["data"]
+            else:
+                result_txt += ""
+
+            messagebox.showinfo("Completo", "Se recibieron los datos")
+        else:
+            messagebox.showwarning("Advertencia", "No se reicibio datos")
+            return
+
+def on_listbox_select(event):
+    global result_txt, result_conn, result_file, result_filename
+
+    seleccion = file_list.curselection()
+
+    if not seleccion:
+        messagebox.showwarning("Advertencia", "No se seleccionó ningún archivo")
+        return
+    
+    result_filename = file_list.get(seleccion)
+
+def plot_file_from_arduino():
+    global result_txt
+
+    if not result_txt:
+        messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
+        return
+    
+    lineas = result_txt.splitlines()
+
+    x = []
+    y = []
+
+    for linea in lineas:
+        valores = linea.split()
+
+        x.append(float(valores[0]))
+        y.append(float(valores[1]))
+    
+    ax_2.clear()
+    ax_2.plot(x, y, '#ee7218')
+    plt.grid()
+    ax.grid(True)
+
+    canvas_2.draw()
+
+# -------------------------------
+
+def load_file_data():
+    global result_txt, result_conn, result_filename
+
+    if not result_conn:
+        messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
+        return
+
+    ip = result_conn["ip"]
+
+    if not result_filename:
+        messagebox.showwarning("Advertencia", "Archivo no encontrado")
+        return
+
+    obj_select = next((obj for obj in result_file if obj["filename"] == str(result_filename)), None)
+    
+    if not obj_select:
+        messagebox.showwarning("Advertencia", "Archivo no encontrado en la lista")
+        return
+
+    file_name = result_filename
+    
+    loop_req = int(obj_select["size"]) // 5000
+
+    result_txt = ""
+
+    for i in range(loop_req + 1):
+        index = 5000 * i
+        send_req = {
+            "filename": file_name,
+            "limit": 5000,
+            "index": index
+        }
+
+        try:
+            response = requests.post(f'http://{ip}', json=send_req)
+            response.raise_for_status() 
+        except requests.RequestException as e:
+            messagebox.showwarning("Advertencia", f"Error en la solicitud: {e}")
+            return
+
+        req_resp = response.json()
+        result_txt += req_resp.get("data", "")
+
+    messagebox.showinfo("Completo", "Se recibieron los datos")
+
+def delete_file_arduino():
+    global result_conn, result_filename
+
+    if not result_conn:
+        messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
+        return
+
+    ip = result_conn["ip"]
+
+    if not result_filename:
+        messagebox.showwarning("Advertencia", "Archivo no encontrado")
+        return
+    
+    send_delete = {
+        "filename": result_filename,
+        "action": "delete"
+    }
+    
+    response = requests.post(f'http://{ip}', json=send_delete)
+
+    if response.status_code == 200:
+        messagebox.showinfo("Completo", "Se elimino Archivo")
+        get_files_arduino()
+        return
+    else:
+        messagebox.showwarning("Advertencia", "Error al eliminar Archivos")
+        get_files_arduino()
+        return    
+
+# -------------------------------
+
+def upload_file_in_chunks():
+    global result_txt, result_conn
+
+    if not result_conn:
+        messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
+        return
+
+    ip = result_conn["ip"]
+    
+    filepath = filedialog.askopenfilename()
+
+    if not filepath:
+        messagebox.showwarning("Advertencia", "No se Selecciono Archivo")
+        return
+    
+    filename = os.path.basename(filepath)
+    file_size = os.path.getsize(filepath)
+    
+    progress_bar.configure(mode="determinate")  
+    progress_bar.set(0)  
+    progress_bar.start() 
+    
+    with open(filepath, 'rb') as file:
+        total_sent = 0
+        while True:
+            chunk_size = calculate_bytes_for_lines(file, 100)
+            if chunk_size == 0:
+                break
+
+            file.seek(-chunk_size, os.SEEK_CUR)  
+            chunk = file.read(chunk_size)
+
+            if not chunk:
+                break
+
+            files = {'file': (filename, chunk)}
+            response = requests.post(f'http://{ip}', files=files)
+            
+            if response.status_code != 200:
+                messagebox.showwarning("Advertencia", "Error al enviar datos")
+                break
+
+            total_sent += len(chunk)
+            progress = total_sent / file_size  
+            progress_bar.set(progress)  
+            progress_bar.update_idletasks()  
+
+        progress_bar.stop()
+        messagebox.showinfo("Completo", "Se enviaron los datos")
+
+    get_files_arduino()
+
+def calculate_bytes_for_lines(file, num_lines=1000):
+    total_bytes = 0
+    lines_count = 0
+
+    while lines_count < num_lines:
+        char = file.read(1)
+        if not char:
+            break  
+
+        total_bytes += len(char)
+
+        if char == b'\n':  
+            lines_count += 1
+
+    return total_bytes
+
+# -------------------------------
+
+def dialog_connect_server(root):
+    global result_conn
+
+    def on_submit():
+        global result_conn
+
+        ip = ip_entry.get().strip()
+
+        if not ip :
+            dialog.focus_set()
+            messagebox.showwarning("Advertencia", "La Direccion IP es obligatoria", parent=dialog)
+            return
+        
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError:
+            messagebox.showerror("Error", "Dirección IP no válida", parent=dialog)
+            return
+        
+        try:
+            response = requests.get(f'http://{ip}')
+
+            if response.status_code == 200:
+                img_status.configure(image=onlin_img)
+                status_label.configure(text="Conectado")
+            else:
+                img_status.configure(image=error_img)
+                status_label.configure(text="Error")
+        except requests.Timeout:
+                img_status.configure(image=disco_img)
+                status_label.configure(text="TimeOut")
+        except requests.RequestException:
+                img_status.configure(image=error_img)
+                status_label.configure(text="Error")
+
+        result_conn = {
+            "ip" : ip,
+        }
+
+        dialog.destroy()
+    
+
+    dialog = tk.Toplevel(root)
+    dialog.title("Conexion con la Mesa")
+
+    dialog.grid_rowconfigure(0, weight=1)
+
+    tk.Label(dialog, text="Direccion IP:"  ).grid(row=0, column=0, padx=10, pady=10)
+
+    ip_entry = tk.Entry(dialog)
+
+    ip_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
+    submit_button.grid(row=4, columnspan=2, padx=10, pady=10, sticky="ew")
+
+    center_dialog(dialog, root)
+
+def show_connect_dialog(event=None):
+    global result_conn
+    result_conn = None 
+    dialog_connect_server(root)
+    root.after(100, check_result_conn)
+
+def check_result_conn():
+    if result_conn is not None:
+        try:
+            ip_label.configure(text=f"{result_conn["ip"]}")
+        except tk.TclError as e:
+            print(f"Error al actualizar las etiquetas: {e}")
+    else:
+        root.after(100, check_result_conn)
+
+# ------------------------------
+
+def send_info_table():
+    global result_data, result_conn, conn_estab
+
+    if result_conn is not None and result_data is not None:
+
+        try:
+            ip = result_conn["ip"]
+            conn_estab = True
+            response = requests.post(f'http://{ip}', json=result_data, timeout=1)
+            
+            if response.status_code == 200:
+                messagebox.showinfo("Enviado", f"Los datos se enviaron Correctamente")
+
+        except requests.Timeout:
+            t = ''
+        except requests.RequestException as e:
+            y = ''
+    else:
+        messagebox.showwarning("Advertencia", "Verificar medios de Conexion o datos")
+
+def pause_loop():
+    global result_conn
+
+    send_d = {
+        "aa" : "aaa"
+    }
+
+    if result_conn is not None:
+        try:
+            ip = result_conn["ip"]
+            response = requests.post(f'http://{ip}', json=send_d, timeout=1)
+            
+            if response.status_code == 200:
+                messagebox.showinfo("Enviado", f"Los datos se enviaron Correctamente")
+
+        except requests.Timeout:
+            t = ''
+        except requests.RequestException as e:
+            y = ''
+
+
+    else:
+        messagebox.showwarning("Advertencia", "Verificar medios de Conexion o datos")
+
+# ------------------------------
 
 # def show_frame(frame):
 #     slider_control.grid_forget()
@@ -460,13 +899,18 @@ def update_freq(value):
 
 root = customtkinter.CTk()
 # root.overrideredirect(True)
+customtkinter.set_appearance_mode("dark")
 
-root.iconbitmap('./img/NCN.ico')
+icon_path = os.path.abspath(resource_path('./img/NCN.ico'))
+
+root.iconbitmap( icon_path )
 
 root.title("NCN | Shake Table Controller - Nuevo Control")
 root.geometry("800x600")
 
 fig, ax = plt.subplots()
+fig_2, ax_2 = plt.subplots()
+
 text_artist = None
 
 amplitud = []
@@ -535,7 +979,7 @@ frame_right.grid_columnconfigure(0, weight=1)
 
 # ------------------------------------ 
 
-open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="")
+open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=upload_file_in_chunks)
 open_button.grid(row=0, column=0, sticky="n")
 
 # -------------------------
@@ -545,7 +989,7 @@ separator.grid(row=1, column=0, padx=5, pady=2, sticky="we")
 
 # -------------------------
 
-conn_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=conn_img, text="")
+conn_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=conn_img, text="", command=show_connect_dialog)
 conn_button.grid(row=2, column=0, sticky="n")
 
 # -------------------------
@@ -583,8 +1027,44 @@ exit_button.grid(row=9, column=0, sticky="s")
 frame1 = customtkinter.CTkFrame(frame_right)
 frame2 = customtkinter.CTkFrame(frame_right)
 
-label2 = customtkinter.CTkLabel(frame2, text="Frame 2")
-label2.grid(row=0, column=0)
+sism_panel = customtkinter.CTkFrame(frame2)
+sism_panel.grid(row=0, column=1, rowspan=2, padx=5, sticky="nswe")
+
+search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Buscar", command=get_files_arduino)
+search_button.grid(row=0, column=0, pady=3, sticky="we")
+
+file_list = tk.Listbox(sism_panel, width=35, height=10)
+file_list.grid(row=1, column=0)
+file_list.bind('<<ListboxSelect>>', on_listbox_select)
+
+load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Cargar Datos", command=load_file_data)
+load_button.grid(row=2, column=0, pady=3, sticky="we")
+
+delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Borrar", command=delete_file_arduino)
+delete_button.grid(row=3, column=0, pady=3, sticky="we")
+
+graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Graficar", command=plot_file_from_arduino)
+graph2_button.grid(row=4, column=0, pady=3, sticky="we")
+
+canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
+canvas_2.get_tk_widget().grid(row=0, column=0, sticky="nswe")
+
+#----------------------------
+
+graph_control_2 = customtkinter.CTkFrame(frame2)
+graph_control_2.grid(row=1, column=0, sticky="nswe")
+
+play_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_animation)
+play_button_2.grid(row=0, column=0)
+
+pause_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="", command=stop_animation)
+pause_button_2.grid(row=0, column=1)
+
+reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
+reset_button_2.grid(row=0, column=2)
+
+save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
+save_button_2.grid(row=0, column=3)
 
 # ----------------------------
 
@@ -618,13 +1098,13 @@ slider_control.grid(row=2, column=0, sticky="nswe")
 
 customtkinter.CTkLabel(slider_control, text="Amplitud (mm): ", font=bold_font ).grid(row=0, column=0)
 
-amp_slider = customtkinter.CTkSlider(slider_control, from_=1, to=60, number_of_steps=60, command=update_ampl)
+amp_slider = customtkinter.CTkSlider(slider_control, from_=30, to=1015, number_of_steps=986, command=update_ampl)
 amp_slider.grid(row=0, column=1)
 
 
 customtkinter.CTkLabel(slider_control, text="Frecuencia (Hz): " , font=bold_font ).grid(row=0, column=2)
 
-fre_slider = customtkinter.CTkSlider(slider_control, from_=0, to=10, number_of_steps=1000, command=update_freq)
+fre_slider = customtkinter.CTkSlider(slider_control, from_=20, to=1015, number_of_steps=996, command=update_freq)
 fre_slider.grid(row=0, column=3)
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -632,7 +1112,7 @@ fre_slider.grid(row=0, column=3)
 footer = customtkinter.CTkFrame(root)
 footer.grid(row=3, column=1, sticky="ew")
 
-footer.grid_columnconfigure(10, weight=1)
+footer.grid_columnconfigure(9, weight=1)
 
 img_status = customtkinter.CTkLabel(footer, text="", image=disco_img)
 img_status.grid(row=0, column=0)
@@ -660,18 +1140,25 @@ customtkinter.CTkLabel(footer, text="Frecuencia:", font=bold_font).grid(row=0, c
 freq_label = customtkinter.CTkLabel(footer, text=f"{fre_slider.get()} Hz")
 freq_label.grid(row=0, column=7, padx=3)
 
-customtkinter.CTkLabel(footer, text="Duracion:", font=bold_font).grid(row=0, column=8)
+# customtkinter.CTkLabel(footer, text="Duracion:", font=bold_font).grid(row=0, column=8)
 
-dura_label = customtkinter.CTkLabel(footer, text="0.00")
-dura_label.grid(row=0, column=9, padx=3)
+# dura_label = customtkinter.CTkLabel(footer, text="0.00")
+# dura_label.grid(row=0, column=9, padx=3)
 
+progress_bar = customtkinter.CTkProgressBar(footer, orientation="horizontal", width=100, mode=["determinate"])
+progress_bar.grid(row=0, column=8, padx=3)
 
-customtkinter.CTkLabel(footer, text="", image=ncn_img).grid(row=0, column=11)
-customtkinter.CTkLabel(footer, text="NCN | Nuevo Control").grid(row=0, column=12, padx=5)
+customtkinter.CTkLabel(footer, text="", image=ncn_img).grid(row=0, column=10)
+customtkinter.CTkLabel(footer, text="NCN | Nuevo Control").grid(row=0, column=11, padx=5)
 
 # ----------------------------
 
+conn_estab = False
+
+result_filename  = None
 result_data = None
+result_file = None
+result_txt  = None
 result_conn = None
 
 # ---------------------------

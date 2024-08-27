@@ -129,10 +129,13 @@ def update(frame):
     inf = result_data.get("inf", False) if result_data else False
     max_time = frame * 0.1 if inf else duracion
 
-    x = np.linspace(0, max_time , 1000) 
-    y =  amp_slider.get() * np.sin(2 * np.pi * fre_slider.get() * (x - 0.01 * frame))
+    amp_val = float(amp_input.get()) if float(amp_input.get()) else 1 
+    fre_val = float(freq_input.get()) if float(freq_input.get()) else 1 
 
-    amplitud.append(amp_slider.get())
+    x = np.linspace(0, max_time , 1000) 
+    y =  amp_val * np.sin(2 * np.pi * fre_val * (x - 0.01 * frame))
+
+    amplitud.append(amp_val)
 
     ax.clear()
 
@@ -172,33 +175,40 @@ def animate():
 def start_animation():
     global ani, result_data, result_conn
 
-    amp = str(amp_slider.get())
+    amp = float(amp_input.get()) if float(amp_input.get()) else 1
 
     m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
 
     max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
 
-    freq = str(fre_slider.get())
+    freq = float(freq_input.get()) if float(freq_input.get()) else 1
 
     m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(m_speed):.2f}",
-        "dur" : 10,  
-        "inf" : True
+        "freq": f"{float(freq):.2f}",
+        "dur" : 1,  
+        "inf" : False
     }
+    
+    plot_graph_sen() # ---
 
-    send_info_table()
-
-    if conn_estab:
-        plot_graph_sen()
-
-        if ani is not None:
-            canvas.draw()
-            ani.event_source.start()
+    if ani is not None:
+        canvas.draw()
+        ani.event_source.start()
     else:
         return
+    # send_info_table()
+
+    # if conn_estab:
+    #     plot_graph_sen()
+
+    #     if ani is not None:
+    #         canvas.draw()
+    #         ani.event_source.start()
+    # else:
+    #     return
     
 def stop_animation():
     global ani
@@ -438,51 +448,60 @@ def check_result_data():
 def update_ampl(value):
     global ani, result_data
 
-    amp = str(amp_slider.get())
+    amp = str(amp_input.get()) if str(amp_input.get()) else value
 
     m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
 
     max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
 
-    freq = str(fre_slider.get())
+    freq = str(freq_input.get()) if str(freq_input.get()) else value 
 
     m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
+    new_speed = m_speed / (2 * 3.14)
+
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(m_speed):.2f}",
-        "dur" : 10,  
-        "inf" : True
+        "freq": f"{float(freq):.2f}",
+        "f_amp" : f"{float(amp):.2f}",
+        "f_freq": f"{float(m_speed):.2f}",
+        "dur" : 1,  
+        "inf" : False
     }
 
-    send_info_table()
+    # send_info_table()
 
     amp_label.configure(text=f"{int(m_dist)} mm")
+    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
     # plot_graph_sen()
 
 def update_freq(value):
     global ani, result_data
 
-    amp = str(amp_slider.get())
+    amp = str(amp_input.get()) if str(amp_input.get()) else value
 
     m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
 
     max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
 
-    freq = str(fre_slider.get())
+    freq = str(freq_input.get()) if str(freq_input.get()) else value
 
     m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
+    new_speed = m_speed / (2 * 3.14)
+
     result_data = {
         "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(m_speed):.2f}",
-        "dur" : 10,  
-        "inf" : True
+        "freq": f"{float(freq):.2f}",
+        "f_amp" : f"{float(amp):.2f}",
+        "f_freq": f"{float(m_speed):.2f}",
+        "dur" : 1,  
+        "inf" : False
     }
 
-    send_info_table()
-
-    freq_label.configure(text=f"{float(m_speed):.2f} Hz")
+    # send_info_table()
+    amp_label.configure(text=f"{int(m_dist)} mm")
+    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
     # plot_graph_sen()
 
 def calibrate_slider(val, in_min, in_max, out_min, out_max):
@@ -891,9 +910,49 @@ def pause_loop():
 
 # ------------------------------
 
-# def show_frame(frame):
-#     slider_control.grid_forget()
-#     frame.grid(row=0, column=0, sticky="nsew")
+def adjust_value_amp(increment):
+    current_value = amp_value.get()
+    if amp_10.get():
+        step = 10
+    elif amp_1.get():
+        step = 1
+    elif amp_0_1.get():
+        step = 0.1
+    elif amp_0_01.get():
+        step = 0.01
+    else:
+        step = 0
+    new_value = round(current_value + step * increment, 2)    
+    amp_value.set(new_value)
+
+def adjust_value_freq(increment):
+    current_value = freq_value.get()
+    if freq_10.get():
+        step = 10
+    elif freq_1.get():
+        step = 1
+    elif freq_0_1.get():
+        step = 0.1
+    elif freq_0_01.get():
+        step = 0.01
+    else:
+        step = 0
+    new_value = round(current_value + step * increment, 2)
+    freq_value.set(new_value)
+
+def create_tooltip(widget, text):
+    tooltip = customtkinter.CTkLabel(root, text=text, fg_color="#333332", bg_color="transparent", text_color="white", corner_radius=5)
+    
+    def show_tooltip(event):
+        x = widget.winfo_rootx() - root.winfo_rootx() + widget.winfo_width() + 10 
+        y = widget.winfo_rooty() - root.winfo_rooty()
+        tooltip.place(x=x, y=y)
+    
+    def hide_tooltip(event):
+        tooltip.place_forget()
+    
+    widget.bind("<Enter>", show_tooltip)
+    widget.bind("<Leave>", hide_tooltip)
 
 # ------------------------------------
 
@@ -906,7 +965,7 @@ icon_path = os.path.abspath(resource_path('./img/NCN.ico'))
 root.iconbitmap( icon_path )
 
 root.title("NCN | Shake Table Controller - Nuevo Control")
-root.geometry("800x600")
+root.geometry("900x600")
 
 fig, ax = plt.subplots()
 fig_2, ax_2 = plt.subplots()
@@ -948,14 +1007,14 @@ ncn_img   = customtkinter.CTkImage(load_and_resize_image("./img/NCN.ico"), size=
 ancho_pantalla = root.winfo_screenwidth() 
 alto_pantalla = root.winfo_screenheight() 
 
-ancho_ventana = 850
+ancho_ventana = 1100
 alto_ventana = 600
 
 posicion_x = (ancho_pantalla - ancho_ventana) // 2 
 posicion_y = (alto_pantalla - alto_ventana) // 2
 
 root.geometry(f"{ancho_ventana}x{alto_ventana}+{posicion_x}+{posicion_y}")
-root.minsize(800, 600)
+root.minsize(1100, 600)
 
 bold_font = customtkinter.CTkFont(weight="bold")
 
@@ -974,13 +1033,15 @@ frame.grid_rowconfigure(8, weight=1)
 frame_right = customtkinter.CTkFrame(root)
 frame_right.grid(row=0, column=1,rowspan=9, sticky="nsew")
 
-frame_right.grid_rowconfigure(0, weight=1)
+frame_right.grid_rowconfigure(2, weight=1)
 frame_right.grid_columnconfigure(0, weight=1)
 
 # ------------------------------------ 
 
 open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=upload_file_in_chunks)
 open_button.grid(row=0, column=0, sticky="n")
+
+create_tooltip(open_button, "Abrir")
 
 # -------------------------
 
@@ -992,6 +1053,8 @@ separator.grid(row=1, column=0, padx=5, pady=2, sticky="we")
 conn_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=conn_img, text="", command=show_connect_dialog)
 conn_button.grid(row=2, column=0, sticky="n")
 
+create_tooltip(conn_button, "Conectar")
+
 # -------------------------
 
 separator_2 = customtkinter.CTkFrame(frame, width=1, height=2, fg_color="#d6d6d6")
@@ -1002,8 +1065,12 @@ separator_2.grid(row=3, column=0, padx=5, pady=2, sticky="we")
 harm_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=contr_img, text="", command=lambda: show_frame(frame1))
 harm_button.grid(row=4, column=0, sticky="n")
 
+create_tooltip(harm_button, "Modo Harmonico")
+
 quake_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=quake_img, text="", command=lambda: show_frame(frame2))
 quake_button.grid(row=5, column=0, sticky="n")
+
+create_tooltip(quake_button, "Modo Sismo")
 
 # -------------------------
 
@@ -1025,29 +1092,32 @@ exit_button.grid(row=9, column=0, sticky="s")
 # -----------------------------------------------------------------------------------------
 
 frame1 = customtkinter.CTkFrame(frame_right)
+
 frame2 = customtkinter.CTkFrame(frame_right)
 
-sism_panel = customtkinter.CTkFrame(frame2)
-sism_panel.grid(row=0, column=1, rowspan=2, padx=5, sticky="nswe")
+# -----------------------------------------------------------------------------------------
 
-search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Buscar", command=get_files_arduino)
-search_button.grid(row=0, column=0, pady=3, sticky="we")
+sism_panel = customtkinter.CTkFrame(frame2)
+sism_panel.grid(row=0, column=1, rowspan=2, sticky="nswe")
+
+search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Buscar", command=get_files_arduino)
+search_button.grid(row=0, column=0, padx=5, pady=3, sticky="we")
 
 file_list = tk.Listbox(sism_panel, width=35, height=10)
-file_list.grid(row=1, column=0)
+file_list.grid(row=1, column=0, padx=5)
 file_list.bind('<<ListboxSelect>>', on_listbox_select)
 
-load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Cargar Datos", command=load_file_data)
-load_button.grid(row=2, column=0, pady=3, sticky="we")
+load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
+load_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
 
-delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Borrar", command=delete_file_arduino)
-delete_button.grid(row=3, column=0, pady=3, sticky="we")
+delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Borrar", command=delete_file_arduino)
+delete_button.grid(row=3, column=0, padx=5, pady=3, sticky="we")
 
-graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="transparent", hover_color="#ee7218", text="Graficar", command=plot_file_from_arduino)
-graph2_button.grid(row=4, column=0, pady=3, sticky="we")
+graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Graficar", command=plot_file_from_arduino)
+graph2_button.grid(row=4, column=0, padx=5, pady=3, sticky="we")
 
 canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
-canvas_2.get_tk_widget().grid(row=0, column=0, sticky="nswe")
+canvas_2.get_tk_widget().grid(row=0, column=0, padx=5, sticky="nswe")
 
 #----------------------------
 
@@ -1093,19 +1163,100 @@ save_button.grid(row=0, column=3)
 
 # ---------------------------
 
-slider_control = customtkinter.CTkFrame(frame1)
+slider_control = customtkinter.CTkFrame(frame1, height=30)
 slider_control.grid(row=2, column=0, sticky="nswe")
 
-customtkinter.CTkLabel(slider_control, text="Amplitud (mm): ", font=bold_font ).grid(row=0, column=0)
+slider_control.grid_columnconfigure(0, weight=1)
+slider_control.grid_columnconfigure(1, weight=1)
 
-amp_slider = customtkinter.CTkSlider(slider_control, from_=30, to=1015, number_of_steps=986, command=update_ampl)
-amp_slider.grid(row=0, column=1)
+# ---------------------------
 
+amp_control = customtkinter.CTkFrame(slider_control, corner_radius=0)
+amp_control.grid(row=0, column=0)
 
-customtkinter.CTkLabel(slider_control, text="Frecuencia (Hz): " , font=bold_font ).grid(row=0, column=2)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 
-fre_slider = customtkinter.CTkSlider(slider_control, from_=20, to=1015, number_of_steps=996, command=update_freq)
-fre_slider.grid(row=0, column=3)
+amp_control_panel = customtkinter.CTkFrame(amp_control, corner_radius=0)
+amp_control_panel.grid(row=0, column=0, sticky="ewns")
+
+amp_control_panel.grid_columnconfigure(1, weight=1)
+
+customtkinter.CTkLabel(amp_control_panel, text="Amplitud (mm): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
+
+amp_value = customtkinter.DoubleVar(value=1.0)
+
+amp_input = customtkinter.CTkEntry(amp_control_panel, corner_radius=0, width=45, placeholder_text="1.00", textvariable=amp_value)
+amp_input.grid(row=0, column=2)
+
+amp_input.configure(justify="center")
+
+amp_plus = customtkinter.CTkButton(amp_control_panel,  corner_radius=0, width=30, text="+", fg_color="#ee7218", hover_color="#78390c", command= lambda: adjust_value_amp(1))
+amp_plus.grid(row=0, column=3)
+
+amp_minus = customtkinter.CTkButton(amp_control_panel, corner_radius=0, width=30, text="-", fg_color="#ee7218", hover_color="#78390c", command= lambda: adjust_value_amp(-1))
+amp_minus.grid(row=0, padx=1, column=4)
+
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+amp_nro_panel = customtkinter.CTkFrame(amp_control, corner_radius=0)
+amp_nro_panel.grid(row=1, column=0, sticky="ewns", pady=3)
+
+amp_nro_panel.grid_rowconfigure(1, weight=1)
+
+amp_10   = customtkinter.BooleanVar()
+amp_1    = customtkinter.BooleanVar()
+amp_0_1  = customtkinter.BooleanVar()
+amp_0_01 = customtkinter.BooleanVar()
+
+amp_ten  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=amp_10).grid(sticky="ns", row=1, column=0, padx=5)
+amp_one  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=amp_1).grid(sticky="ns", row=1, column=1, padx=5)
+amp_done = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=amp_0_1).grid(sticky="ns", row=1, column=2, padx=5)
+amp_dten = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=amp_0_01).grid(sticky="ns", row=1, column=3)
+
+# ----------------------------------------------------------------------------------------------------------------
+
+freq_control = customtkinter.CTkFrame(slider_control, corner_radius=0)
+freq_control.grid(row=0, column=1, padx=5)
+
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+freq_control_panel = customtkinter.CTkFrame(freq_control, corner_radius=0)
+freq_control_panel.grid(row=0, column=0, sticky="ewns")
+
+freq_control_panel.grid_columnconfigure(1, weight=1)
+freq_control_panel.grid_rowconfigure(0, weight=1)
+
+customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
+
+freq_value = customtkinter.DoubleVar(value=1.0)
+
+freq_input = customtkinter.CTkEntry(freq_control_panel, corner_radius=0, width=45, placeholder_text="1.00", textvariable=freq_value)
+freq_input.grid(row=0, column=2)
+
+freq_input.configure(justify="center")
+
+freq_plus = customtkinter.CTkButton(freq_control_panel,  corner_radius=0, width=30, text="+", fg_color="#ee7218", hover_color="#78390c", command= lambda: adjust_value_freq(1))
+freq_plus.grid(row=0, column=3)
+
+freq_minus = customtkinter.CTkButton(freq_control_panel, corner_radius=0, width=30, text="-", fg_color="#ee7218", hover_color="#78390c", command=lambda: adjust_value_freq(-1))
+freq_minus.grid(row=0, padx=1, column=4)
+
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+freq_nro_panel = customtkinter.CTkFrame(freq_control, corner_radius=0)
+freq_nro_panel.grid(row=1, column=0, sticky="ewns", pady=3)
+
+freq_nro_panel.grid_rowconfigure(1, weight=1)
+
+freq_10   = customtkinter.BooleanVar()
+freq_1    = customtkinter.BooleanVar()
+freq_0_1  = customtkinter.BooleanVar()
+freq_0_01 = customtkinter.BooleanVar()
+
+freq_ten  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=freq_10).grid(sticky="ns", row=1, column=0, padx=5)
+freq_one  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=freq_1).grid(sticky="ns", row=1, column=1, padx=5)
+freq_done = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=freq_0_1).grid(sticky="ns", row=1, column=2, padx=5)
+freq_dten = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=freq_0_01).grid(sticky="ns", row=1, column=3)
 
 # ----------------------------------------------------------------------------------------------------------------
 
@@ -1115,7 +1266,7 @@ footer.grid(row=3, column=1, sticky="ew")
 footer.grid_columnconfigure(9, weight=1)
 
 img_status = customtkinter.CTkLabel(footer, text="", image=disco_img)
-img_status.grid(row=0, column=0)
+img_status.grid(row=0, column=0, padx=5)
 
 status_label  = customtkinter.CTkLabel(footer, text="Desconectado ")
 status_label.grid(row=0, column=1, padx=1)
@@ -1125,28 +1276,27 @@ ip_label.grid(row=0, column=2)
 
 # --------------------------
 
-separator_footer = customtkinter.CTkFrame(footer, width=1, height=1, fg_color="#d6d6d6")
-separator_footer.grid(row=0, column=3, sticky="ns", padx=5, pady=2)
+customtkinter.CTkLabel(footer, text="|" , font=bold_font ).grid(row=0, column=3, padx=5)
 
 # --------------------------
 
 customtkinter.CTkLabel(footer, text="Amplitud:" , font=bold_font ).grid(row=0, column=4)
 
-amp_label  = customtkinter.CTkLabel(footer, text=f"{amp_slider.get()} mm")
+amp_label  = customtkinter.CTkLabel(footer, text=f"{amp_input.get()} mm")
 amp_label.grid(row=0, column=5, padx=3)
 
 customtkinter.CTkLabel(footer, text="Frecuencia:", font=bold_font).grid(row=0, column=6)
 
-freq_label = customtkinter.CTkLabel(footer, text=f"{fre_slider.get()} Hz")
+freq_label = customtkinter.CTkLabel(footer, text=f"{freq_input.get()} Hz")
 freq_label.grid(row=0, column=7, padx=3)
 
-# customtkinter.CTkLabel(footer, text="Duracion:", font=bold_font).grid(row=0, column=8)
+progress_bar = customtkinter.CTkProgressBar(footer, orientation="horizontal", width=100, mode=["determinate"], height=15, corner_radius=0, progress_color="#ee7218")
+progress_bar.grid(row=0, column=8, padx=5)
 
-# dura_label = customtkinter.CTkLabel(footer, text="0.00")
-# dura_label.grid(row=0, column=9, padx=3)
-
-progress_bar = customtkinter.CTkProgressBar(footer, orientation="horizontal", width=100, mode=["determinate"])
-progress_bar.grid(row=0, column=8, padx=3)
+progress_bar.configure(mode="determinate")  
+progress_bar.set(0)  
+progress_bar.start()
+progress_bar.stop() 
 
 customtkinter.CTkLabel(footer, text="", image=ncn_img).grid(row=0, column=10)
 customtkinter.CTkLabel(footer, text="NCN | Nuevo Control").grid(row=0, column=11, padx=5)
@@ -1168,9 +1318,9 @@ def show_frame(frame):
     frame2.grid_forget()
     frame.grid(row=0, column=0, sticky="ewns")
     frame.grid_columnconfigure(0, weight=1)
-    frame.grid_rowconfigure(0, weight=1)
-    frame.grid_rowconfigure(1, weight=0)
-    frame.grid_rowconfigure(2, weight=1)
+    frame.grid_rowconfigure(0, weight=0)
+    frame.grid_rowconfigure(1, weight=1)
+    frame.grid_rowconfigure(2, weight=0)
 
 show_frame(frame1)
 

@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 
@@ -458,7 +459,7 @@ def update_ampl(value):
 
     m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
-    new_speed = m_speed / (2 * 3.14)
+    new_speed = freq * (2 * math.PI)
 
     result_data = {
         "amp" : f"{float(amp):.2f}",
@@ -939,6 +940,9 @@ def adjust_value_freq(increment):
         step = 0
     new_value = round(current_value + step * increment, 2)
     freq_value.set(new_value)
+    
+    new_speed = new_value * (2 * 3.14)
+    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
 
 def create_tooltip(widget, text):
     tooltip = customtkinter.CTkLabel(root, text=text, fg_color="#333332", bg_color="transparent", text_color="white", corner_radius=5)

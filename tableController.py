@@ -84,6 +84,8 @@ def max_abs_value(array):
 
 # -------------------------------------------
 
+tiempo = []
+
 def plot_graph_sen():
     global text_artist, duracion, ani
     try:
@@ -114,47 +116,81 @@ def plot_graph_sen():
 
 def init():
     ax.clear()
+    
+    amp_val = float(amp_input.get()) if amp_input.get() else 1 
+    fre_val = float(freq_input.get()) if freq_input.get() else 1 
+
+    x = np.linspace(0, duracion, 1000)
+    y = amp_val * np.sin(2 * np.pi * fre_val * x)
+    ax.plot(x, y, '#ee7218')
+
     ax.set_xlim(0, 1)
-    ax.set_ylim(-1, 1)
+    ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+
     ax.set_xlabel("Tiempo (s)")
     ax.set_ylabel("Amplitud (mm)")
     ax.grid(True)
+
     return ax,
 
-tiempo = []
-
 def update(frame):
-    if not result_data or not amplitud or not frecuencia:
-        return ax,
+    # if not result_data or not amplitud or not frecuencia:
+    #     return ax,
 
-    inf = result_data.get("inf", False) if result_data else False
-    max_time = frame * 0.1 if inf else duracion
+    # inf = result_data.get("inf", False) if result_data else False
+    # max_time = frame * 0.1 if inf else duracion
 
-    amp_val = float(amp_input.get()) if float(amp_input.get()) else 1 
-    fre_val = float(freq_input.get()) if float(freq_input.get()) else 1 
+    # amp_val = float(amp_input.get()) if float(amp_input.get()) else 1 
+    # fre_val = float(freq_input.get()) if float(freq_input.get()) else 1 
 
-    x = np.linspace(0, max_time , 1000) 
-    y =  amp_val * np.sin(2 * np.pi * fre_val * (x - 0.01 * frame))
+    # x = np.linspace(0, max_time , 1000) 
+    # y =  amp_val * np.sin(2 * np.pi * fre_val * (x - 0.01 * frame))
 
-    amplitud.append(amp_val)
+    # amplitud.append(amp_val)
 
-    ax.clear()
+    # ax.clear()
 
-    ax.plot(x, y, '#ee7218')
-    if inf:
-        ax.set_xlim(0, min(max_time * 2, frame * 0.1))  
-    else:
-        ax.set_xlim(0, duracion)
+    # ax.plot(x, y, '#ee7218')
 
-    if amplitud:
-        ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+    # if inf:
+    #     ax.set_xlim(0, min(max_time * 2, frame * 0.1))  
+    # else:
+    #     ax.set_xlim(0, duracion)
 
-    # ax.text(0.81, 1.05, f'PGA: FF cm/s²', horizontalalignment='left', verticalalignment='top',
-    # transform=ax.transAxes,fontsize=10, bbox=dict(facecolor='white', edgecolor='none', pad=1))
+    # if amplitud:
+    #     ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+
+    if len(ax.lines) > 1:  
+        ax.lines[-1].remove()
     
-    ax.set_xlabel("Tiempo (s)")
-    ax.set_ylabel("Amplitud (mm)")
-    ax.grid(True)
+    if len(ax.collections) > 0:
+        ax.collections[-1].remove()
+    
+    if len(ax.texts) > 0:
+        ax.texts[-1].remove()
+
+    vertical_line_x = frame * 0.01  
+    if vertical_line_x <= duracion:
+        ax.axvline(x=vertical_line_x, color='blue', linestyle='--')
+    
+    amp_val = float(amp_input.get()) if amp_input.get() else 1
+    fre_val = float(freq_input.get()) if freq_input.get() else 1
+    point_y = amp_val * np.sin(2 * np.pi * fre_val * vertical_line_x) 
+
+    ax.scatter(vertical_line_x, point_y, color='red', zorder=5) 
+
+    ax.text(0.75, 1.05, f'x = {vertical_line_x:.2f} seg, y = {point_y:.2f} mm',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax.transAxes)
+
+    # ax.set_xlim(0, max_time)
+    # ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+
+    # # ax.text(0.81, 1.05, f'PGA: FF cm/s²', horizontalalignment='left', verticalalignment='top',
+    # # transform=ax.transAxes,fontsize=10, bbox=dict(facecolor='white', edgecolor='none', pad=1))
+    
+    # ax.set_xlabel("Tiempo (s)")
+    # ax.set_ylabel("Amplitud (mm)")
+    # ax.grid(True)
 
     return ax,
 
@@ -453,7 +489,7 @@ def update_ampl(value):
 
     m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
 
-    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
+    max_vel = get_max_vel(m_dist)
 
     freq = str(freq_input.get()) if str(freq_input.get()) else value 
 
@@ -483,7 +519,7 @@ def update_freq(value):
 
     m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
 
-    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
+    max_vel = get_max_vel(m_dist)
 
     freq = str(freq_input.get()) if str(freq_input.get()) else value
 
@@ -501,12 +537,15 @@ def update_freq(value):
     }
 
     # send_info_table()
-    amp_label.configure(text=f"{int(m_dist)} mm")
+    amp_label.configure(text=f"{float(m_dist)} mm")
     freq_label.configure(text=f"{float(new_speed):.2f} Hz")
     # plot_graph_sen()
 
 def calibrate_slider(val, in_min, in_max, out_min, out_max):
     return (float(val) - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+def get_max_vel(dist):
+    return (0.00159962) * pow(dist, 3) - 0.41303215 * pow(dist, 2) + 20.83780711 * dist + 103.82640002
 
 # -------------------------------
 
@@ -924,7 +963,18 @@ def adjust_value_amp(increment):
     else:
         step = 0
     new_value = round(current_value + step * increment, 2)    
-    amp_value.set(new_value)
+
+    m_dist = calibrate_slider(new_value, 0, 30, 30, 1015)
+    
+    if m_dist >= 1015:
+        amp_value.set(30.00)
+        amp_label.configure(text=f"{float(m_dist):.2f} mm")
+    elif m_dist <= 0 or new_value <= 0:
+        amp_value.set(0.00)
+        amp_label.configure(text=f"{float(0.00):.2f} mm")
+    else:
+        amp_value.set(new_value)
+        amp_label.configure(text=f"{float(m_dist):.2f} mm")
 
 def adjust_value_freq(increment):
     current_value = freq_value.get()
@@ -942,6 +992,7 @@ def adjust_value_freq(increment):
     freq_value.set(new_value)
     
     new_speed = new_value * (2 * 3.14)
+
     freq_label.configure(text=f"{float(new_speed):.2f} Hz")
 
 def create_tooltip(widget, text):
@@ -1012,13 +1063,13 @@ ancho_pantalla = root.winfo_screenwidth()
 alto_pantalla = root.winfo_screenheight() 
 
 ancho_ventana = 1100
-alto_ventana = 600
+alto_ventana = 620
 
 posicion_x = (ancho_pantalla - ancho_ventana) // 2 
 posicion_y = (alto_pantalla - alto_ventana) // 2
 
 root.geometry(f"{ancho_ventana}x{alto_ventana}+{posicion_x}+{posicion_y}")
-root.minsize(1100, 600)
+root.minsize(1100, 620)
 
 bold_font = customtkinter.CTkFont(weight="bold")
 
@@ -1121,7 +1172,7 @@ graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_colo
 graph2_button.grid(row=4, column=0, padx=5, pady=3, sticky="we")
 
 canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
-canvas_2.get_tk_widget().grid(row=0, column=0, padx=5, sticky="nswe")
+canvas_2.get_tk_widget().grid(row=0, column=0, sticky="nswe")
 
 #----------------------------
 

@@ -125,7 +125,7 @@ def init():
     ax.plot(x, y, '#ee7218')
 
     ax.set_xlim(0, 1)
-    ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
+    ax.set_ylim(float(-1.5 * amp_val), float(1.5 * amp_val))
 
     ax.set_xlabel("Tiempo (s)")
     ax.set_ylabel("Amplitud (mm)")
@@ -214,7 +214,7 @@ def start_animation():
 
     amp = float(amp_input.get()) if float(amp_input.get()) else 1
 
-    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
+    m_dist = calibrate_slider(amp, 0, 30, 30, 1015)
 
     max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
 
@@ -222,30 +222,33 @@ def start_animation():
 
     m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
 
+    amp_l = amp_label.cget("text")[:-3]
+    fre_l = freq_label.cget("text")[:-3]
+
     result_data = {
-        "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
+        "amp" : f"{float(amp_l):.2f}",
+        "freq": f"{float(fre_l):.2f}",
         "dur" : 1,  
         "inf" : False
     }
     
-    plot_graph_sen() # ---
+    # plot_graph_sen() # ---
 
-    if ani is not None:
-        canvas.draw()
-        ani.event_source.start()
-    else:
-        return
-    # send_info_table()
-
-    # if conn_estab:
-    #     plot_graph_sen()
-
-    #     if ani is not None:
-    #         canvas.draw()
-    #         ani.event_source.start()
+    # if ani is not None:
+    #     canvas.draw()
+    #     ani.event_source.start()
     # else:
     #     return
+    send_info_table()
+
+    if conn_estab:
+        plot_graph_sen()
+
+        if ani is not None:
+            canvas.draw()
+            ani.event_source.start()
+    else:
+        return
     
 def stop_animation():
     global ani
@@ -727,6 +730,7 @@ def load_file_data():
         result_txt += req_resp.get("data", "")
 
     messagebox.showinfo("Completo", "Se recibieron los datos")
+    plot_file_from_arduino()
 
 def delete_file_arduino():
     global result_conn, result_filename
@@ -908,7 +912,6 @@ def send_info_table():
     global result_data, result_conn, conn_estab
 
     if result_conn is not None and result_data is not None:
-
         try:
             ip = result_conn["ip"]
             conn_estab = True

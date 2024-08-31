@@ -1,6 +1,8 @@
 import math
 import os
 import sys
+import re
+import tempfile
 
 import requests
 import ipaddress
@@ -20,18 +22,6 @@ import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ------------------------------------
-
-
-def open_file(event=None):
-    filepath = filedialog.askopenfilename()
-
-def select_file():
-    filepath = filedialog.askopenfilename()
-    # if filepath:
-    #     port = port_entry.get()
-    #     baudrate = int(sub_entry.get())
-    #     send_file_to_arduino(port, baudrate, filepath)
-
 
 def load_and_resize_image(file_path):
     return Image.open(resource_path(file_path))
@@ -134,32 +124,6 @@ def init():
     return ax,
 
 def update(frame):
-    # if not result_data or not amplitud or not frecuencia:
-    #     return ax,
-
-    # inf = result_data.get("inf", False) if result_data else False
-    # max_time = frame * 0.1 if inf else duracion
-
-    # amp_val = float(amp_input.get()) if float(amp_input.get()) else 1 
-    # fre_val = float(freq_input.get()) if float(freq_input.get()) else 1 
-
-    # x = np.linspace(0, max_time , 1000) 
-    # y =  amp_val * np.sin(2 * np.pi * fre_val * (x - 0.01 * frame))
-
-    # amplitud.append(amp_val)
-
-    # ax.clear()
-
-    # ax.plot(x, y, '#ee7218')
-
-    # if inf:
-    #     ax.set_xlim(0, min(max_time * 2, frame * 0.1))  
-    # else:
-    #     ax.set_xlim(0, duracion)
-
-    # if amplitud:
-    #     ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
-
     if len(ax.lines) > 1:  
         ax.lines[-1].remove()
     
@@ -179,18 +143,8 @@ def update(frame):
 
     ax.scatter(vertical_line_x, point_y, color='red', zorder=5) 
 
-    ax.text(0.75, 1.05, f'x = {vertical_line_x:.2f} seg, y = {point_y:.2f} mm',
-            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax.transAxes)
-
-    # ax.set_xlim(0, max_time)
-    # ax.set_ylim(float(-1.5 * max(amplitud)), float(1.5 * max(amplitud)))
-
-    # # ax.text(0.81, 1.05, f'PGA: FF cm/s²', horizontalalignment='left', verticalalignment='top',
-    # # transform=ax.transAxes,fontsize=10, bbox=dict(facecolor='white', edgecolor='none', pad=1))
-    
-    # ax.set_xlabel("Tiempo (s)")
-    # ax.set_ylabel("Amplitud (mm)")
-    # ax.grid(True)
+    ax.text(1 , 1.05, f'x = {vertical_line_x:.2f} seg, y = {point_y:.2f} mm',
+            fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax.transAxes)
 
     return ax,
 
@@ -212,16 +166,6 @@ def animate():
 def start_animation():
     global ani, result_data, result_conn
 
-    amp = float(amp_input.get()) if float(amp_input.get()) else 1
-
-    m_dist = calibrate_slider(amp, 0, 30, 30, 1015)
-
-    max_vel = (0.00159962) * pow(m_dist, 3) - 0.41303215 * pow(m_dist, 2) + 20.83780711 * m_dist + 103.82640002
-
-    freq = float(freq_input.get()) if float(freq_input.get()) else 1
-
-    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
-
     amp_l = amp_label.cget("text")[:-3]
     fre_l = freq_label.cget("text")[:-3]
 
@@ -232,23 +176,26 @@ def start_animation():
         "inf" : False
     }
     
-    # plot_graph_sen() # ---
+    plot_graph_sen()
 
-    # if ani is not None:
-    #     canvas.draw()
-    #     ani.event_source.start()
-    # else:
-    #     return
-    send_info_table()
-
-    if conn_estab:
-        plot_graph_sen()
-
-        if ani is not None:
-            canvas.draw()
-            ani.event_source.start()
+    if ani is not None:
+        canvas.draw()
+        ani.event_source.start()
     else:
         return
+    
+    # --------------------------
+
+    # send_info_table()
+
+    # if conn_estab:
+    #     plot_graph_sen()
+
+    #     if ani is not None:
+    #         canvas.draw()
+    #         ani.event_source.start()
+    # else:
+    #     return
     
 def stop_animation():
     global ani
@@ -284,16 +231,6 @@ def restart_animation():
         animating = True
         # ani.event_source.start()
 
-def next_frame():
-    global frame_index
-    if ani:
-        ani.event_source.stop()
-
-def prev_frame():
-    global frame_index
-    if ani:
-         ani.event_source.stop()
-
 # ----------------------------
 
 def dialog_connect_server(root):
@@ -302,8 +239,7 @@ def dialog_connect_server(root):
     def on_submit():
         global result_conn
 
-        ip = ip_entry.get().strip()
-
+        ip =  ip_entry.get().strip() if ip_entry.get() != ""  else opt_value.get().strip() 
         if not ip :
             dialog.focus_set()
             messagebox.showwarning("Advertencia", "La Direccion IP es obligatoria", parent=dialog)
@@ -337,20 +273,35 @@ def dialog_connect_server(root):
 
         dialog.destroy()
     
+    def radio_change():
+        if opt_value.get() == "enable":
+            ip_entry.configure(state="normal")
+        else:
+            ip_entry.configure(state="disabled")
 
     dialog = tk.Toplevel(root)
     dialog.title("Conexion con la Mesa")
 
-    dialog.grid_rowconfigure(0, weight=1)
+    dialog.grid_columnconfigure(0, weight=1)
 
-    tk.Label(dialog, text="Direccion IP:"  ).grid(row=0, column=0, padx=10, pady=10)
+    opt_value = tk.StringVar(value="none")
+
+    rad_utp = tk.Radiobutton(dialog, text="Conexion Cable Internet", variable=opt_value, value="192.168.1.170", command=radio_change)
+    rad_utp.grid(row=0, column=0)
+
+    rad_wif = tk.Radiobutton(dialog, text="Conexion WIFI", variable=opt_value, value="192.168.1.160", command=radio_change)
+    rad_wif.grid(row=1, column=0)
+
+    rad_ent = tk.Radiobutton(dialog, text="Connexion IP", variable=opt_value, value="enable", command=radio_change)
+    rad_ent.grid(row=2, column=0)
 
     ip_entry = tk.Entry(dialog)
+    ip_entry.grid(row=3, column=0)
 
-    ip_entry.grid(row=0, column=1, padx=10, pady=10)
+    ip_entry.configure(state="disabled")
 
     submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
-    submit_button.grid(row=4, columnspan=2, padx=10, pady=10, sticky="ew")
+    submit_button.grid(row=4, columnspan=2, padx=5, pady=5, sticky="ew")
 
     center_dialog(dialog, root)
 
@@ -571,7 +522,6 @@ def get_files_arduino():
                 for file in file_list_response:
                     file_list.insert(tk.END, f'{file["filename"]}')
             else:
-                print(response)
                 return
 
     except:
@@ -678,9 +628,21 @@ def plot_file_from_arduino():
         y.append(float(valores[1]))
     
     ax_2.clear()
+
+    cycles = len(x) - 1
+    time =  x[cycles] - x[0]
+    clc_frq = cycles / time
+
     ax_2.plot(x, y, '#ee7218')
+    ax_2.set_xlabel("Tiempo (s)")
     plt.grid()
-    ax.grid(True)
+    ax_2.grid(True)
+
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+    
+    ax_2.text(1, 1.05, f'Max = {max(y):.3f} mm',
+            fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
 
     canvas_2.draw()
 
@@ -763,29 +725,74 @@ def delete_file_arduino():
 
 # -------------------------------
 
+def open_file():
+    global result_txt, filename_og
+
+    filepath = filedialog.askopenfilename(filetypes=[('Text Files', '*.txt')])
+
+    if not filepath:
+        messagebox.showwarning("Advertencia", "No se Selecciono Archivo")
+        return
+    
+    filename_og = os.path.basename(filepath)
+    # file_size = os.path.getsize(filepath)
+
+    with open(filepath, 'rb') as file:
+        result_txt = file.read()
+
+    plot_file_from_arduino()
+    show_frame(frame2)
+
+    # with open(filepath, 'r') as file:
+    #     for line in file:
+    #         parts = div.split(line.strip())
+
+    #         if len(parts) == 2:
+    #             try:
+    #                 num1 = float(parts[0])
+    #                 num2 = float(parts[1])
+
+    #                 x.append(num1)
+    #                 y.append(num2)
+    #             except ValueError:
+    #                 d = ''
+    
+    # if not x or not y:
+    #     messagebox.showwarning("Advertencia", "No se consiguieron Datos")
+    # else:
+    #     plot_file_from_arduino()
+    #     show_frame(frame2)
+
 def upload_file_in_chunks():
-    global result_txt, result_conn
+    global result_txt, result_conn, temp_file, filename_og
 
     if not result_conn:
         messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
         return
 
     ip = result_conn["ip"]
-    
-    filepath = filedialog.askopenfilename()
 
-    if not filepath:
-        messagebox.showwarning("Advertencia", "No se Selecciono Archivo")
+    if not temp_file:
+        messagebox.showwarning("Advertencia", "No se puede leer datos de Archivo Auto Ajustado")
         return
     
-    filename = os.path.basename(filepath)
-    file_size = os.path.getsize(filepath)
+    if not filename_og:
+        messagebox.showwarning("Advertencia", "No se puede obtener el Nombre del Archivo")
+        return
+    # filepath = filedialog.askopenfilename()
+
+    # if not filepath:
+    #     messagebox.showwarning("Advertencia", "No se Selecciono Archivo")
+    #     return
+    
+    # filename = os.path.basename(filepath)
+    file_size = os.path.getsize(temp_file.name)
     
     progress_bar.configure(mode="determinate")  
     progress_bar.set(0)  
-    progress_bar.start() 
+    progress_bar.start()
     
-    with open(filepath, 'rb') as file:
+    with open(temp_file.name, 'rb') as file:
         total_sent = 0
         while True:
             chunk_size = calculate_bytes_for_lines(file, 100)
@@ -798,7 +805,7 @@ def upload_file_in_chunks():
             if not chunk:
                 break
 
-            files = {'file': (filename, chunk)}
+            files = {'file': (filename_og, chunk)}
             response = requests.post(f'http://{ip}', files=files)
             
             if response.status_code != 200:
@@ -813,6 +820,8 @@ def upload_file_in_chunks():
         progress_bar.stop()
         messagebox.showinfo("Completo", "Se enviaron los datos")
 
+    temp_file.close()
+    
     get_files_arduino()
 
 def calculate_bytes_for_lines(file, num_lines=1000):
@@ -831,81 +840,63 @@ def calculate_bytes_for_lines(file, num_lines=1000):
 
     return total_bytes
 
-# -------------------------------
+def resample_data():
+    global result_txt, temp_file
 
-def dialog_connect_server(root):
-    global result_conn
-
-    def on_submit():
-        global result_conn
-
-        ip = ip_entry.get().strip()
-
-        if not ip :
-            dialog.focus_set()
-            messagebox.showwarning("Advertencia", "La Direccion IP es obligatoria", parent=dialog)
-            return
-        
-        try:
-            ipaddress.ip_address(ip)
-        except ValueError:
-            messagebox.showerror("Error", "Dirección IP no válida", parent=dialog)
-            return
-        
-        try:
-            response = requests.get(f'http://{ip}')
-
-            if response.status_code == 200:
-                img_status.configure(image=onlin_img)
-                status_label.configure(text="Conectado")
-            else:
-                img_status.configure(image=error_img)
-                status_label.configure(text="Error")
-        except requests.Timeout:
-                img_status.configure(image=disco_img)
-                status_label.configure(text="TimeOut")
-        except requests.RequestException:
-                img_status.configure(image=error_img)
-                status_label.configure(text="Error")
-
-        result_conn = {
-            "ip" : ip,
-        }
-
-        dialog.destroy()
+    if not result_txt:
+        messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
+        return
     
+    lineas = result_txt.splitlines()
 
-    dialog = tk.Toplevel(root)
-    dialog.title("Conexion con la Mesa")
+    x = []
+    y = []
 
-    dialog.grid_rowconfigure(0, weight=1)
+    for linea in lineas:
+        valores = linea.split()
 
-    tk.Label(dialog, text="Direccion IP:"  ).grid(row=0, column=0, padx=10, pady=10)
+        x.append(float(valores[0]))
+        y.append(float(valores[1]))
+    
+    x_re = x[::10]
+    y_re = y[::10]
 
-    ip_entry = tk.Entry(dialog)
+    x_re = np.array(x_re)
+    y_re = np.array(y_re)
 
-    ip_entry.grid(row=0, column=1, padx=10, pady=10)
+    ax_2.clear()
 
-    submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
-    submit_button.grid(row=4, columnspan=2, padx=10, pady=10, sticky="ew")
+    cycles = len(x_re) - 1
+    time =  x_re[cycles] - x_re[0]
+    clc_frq = cycles / time
 
-    center_dialog(dialog, root)
+    max_value = max(y_re)
 
-def show_connect_dialog(event=None):
-    global result_conn
-    result_conn = None 
-    dialog_connect_server(root)
-    root.after(100, check_result_conn)
-
-def check_result_conn():
-    if result_conn is not None:
-        try:
-            ip_label.configure(text=f"{result_conn["ip"]}")
-        except tk.TclError as e:
-            print(f"Error al actualizar las etiquetas: {e}")
+    if max_value > 50:
+        y_ree = ( y_re / max_value) * 50
     else:
-        root.after(100, check_result_conn)
+        y_ree = y_re
 
+    ax_2.plot(x_re, y_ree, '#ee7218')
+    ax_2.set_xlabel("Tiempo (s)")
+    plt.grid()
+    ax_2.grid(True)
+
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x_re)}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+    
+    ax_2.text(1, 1.05, f'Max = {max(y_ree):.3f} mm',
+            fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
+
+    canvas_2.draw()
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
+
+    for x_val, y_val in zip(x_re, y_ree):
+        temp_file.write(f"{x_val} {y_val}\n")
+    
+    temp_file.flush()
+    
 # ------------------------------
 
 def send_info_table():
@@ -978,7 +969,7 @@ def adjust_value_amp(increment):
     else:
         amp_value.set(new_value)
         amp_label.configure(text=f"{float(m_dist):.2f} mm")
-
+    
 def adjust_value_freq(increment):
     current_value = freq_value.get()
     if freq_10.get():
@@ -1096,7 +1087,7 @@ frame_right.grid_columnconfigure(0, weight=1)
 
 # ------------------------------------ 
 
-open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=upload_file_in_chunks)
+open_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=open_img, text="", command=open_file)
 open_button.grid(row=0, column=0, sticky="n")
 
 create_tooltip(open_button, "Abrir")
@@ -1147,7 +1138,7 @@ frame.grid_rowconfigure(8, weight=1)
 exit_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=help_img, text="")
 exit_button.grid(row=9, column=0, sticky="s") 
 
-# -----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------
 
 frame1 = customtkinter.CTkFrame(frame_right)
 
@@ -1155,27 +1146,44 @@ frame2 = customtkinter.CTkFrame(frame_right)
 
 # -----------------------------------------------------------------------------------------
 
-sism_panel = customtkinter.CTkFrame(frame2)
-sism_panel.grid(row=0, column=1, rowspan=2, sticky="nswe")
-
-search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Buscar", command=get_files_arduino)
-search_button.grid(row=0, column=0, padx=5, pady=3, sticky="we")
-
-file_list = tk.Listbox(sism_panel, width=35, height=10)
-file_list.grid(row=1, column=0, padx=5)
-file_list.bind('<<ListboxSelect>>', on_listbox_select)
-
-load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
-load_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
-
-delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Borrar", command=delete_file_arduino)
-delete_button.grid(row=3, column=0, padx=5, pady=3, sticky="we")
-
-graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, fg_color="#ee7218", hover_color="#78390c", text="Graficar", command=plot_file_from_arduino)
-graph2_button.grid(row=4, column=0, padx=5, pady=3, sticky="we")
-
 canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
 canvas_2.get_tk_widget().grid(row=0, column=0, sticky="nswe")
+
+#----------------------------
+
+sism_panel = customtkinter.CTkFrame(frame2)
+sism_panel.grid(row=0, column=1, rowspan=8, sticky="nswe")
+
+upload_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Auto Ajuste", command=resample_data)
+upload_button.grid(row=0, column=0, padx=5, pady=3, sticky="we")
+
+#----------------------------
+
+customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=1, column=0, padx=5, pady=2, sticky="we")
+
+#----------------------------
+
+search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Buscar", command=get_files_arduino)
+search_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
+
+file_list = tk.Listbox(sism_panel, width=35, height=10)
+file_list.grid(row=3, column=0, padx=5)
+file_list.bind('<<ListboxSelect>>', on_listbox_select)
+
+load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
+load_button.grid(row=4, column=0, padx=5, pady=3, sticky="we")
+
+delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Borrar", command=delete_file_arduino)
+delete_button.grid(row=5, column=0, padx=5, pady=3, sticky="we")
+
+#----------------------------
+
+customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=6, column=0, padx=5, pady=2, sticky="we")
+
+#----------------------------
+
+graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Subir Archivo", command=upload_file_in_chunks)
+graph2_button.grid(row=7, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
@@ -1194,7 +1202,7 @@ reset_button_2.grid(row=0, column=2)
 save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
 save_button_2.grid(row=0, column=3)
 
-# ----------------------------
+# -----------------------------------------------------------------------------------------
 
 animating = True
 frame_index = 0
@@ -1241,7 +1249,7 @@ amp_control_panel.grid_columnconfigure(1, weight=1)
 
 customtkinter.CTkLabel(amp_control_panel, text="Amplitud (mm): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
 
-amp_value = customtkinter.DoubleVar(value=1.0)
+amp_value = customtkinter.DoubleVar(value=1.00)
 
 amp_input = customtkinter.CTkEntry(amp_control_panel, corner_radius=0, width=45, placeholder_text="1.00", textvariable=amp_value)
 amp_input.grid(row=0, column=2)
@@ -1286,7 +1294,7 @@ freq_control_panel.grid_rowconfigure(0, weight=1)
 
 customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
 
-freq_value = customtkinter.DoubleVar(value=1.0)
+freq_value = customtkinter.DoubleVar(value=1.00)
 
 freq_input = customtkinter.CTkEntry(freq_control_panel, corner_radius=0, width=45, placeholder_text="1.00", textvariable=freq_value)
 freq_input.grid(row=0, column=2)
@@ -1319,8 +1327,9 @@ freq_dten = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60,
 # ----------------------------------------------------------------------------------------------------------------
 
 footer = customtkinter.CTkFrame(root)
-footer.grid(row=3, column=1, sticky="ew")
+footer.grid(row=9, column=1, sticky="ew")
 
+footer.grid_rowconfigure(0, weight=1)
 footer.grid_columnconfigure(9, weight=1)
 
 img_status = customtkinter.CTkLabel(footer, text="", image=disco_img)
@@ -1369,16 +1378,19 @@ result_file = None
 result_txt  = None
 result_conn = None
 
+temp_file = None
+filename_og = None
+filesize_og = None
+
 # ---------------------------
 
 def show_frame(frame):
     frame1.grid_forget()
     frame2.grid_forget()
-    frame.grid(row=0, column=0, sticky="ewns")
+    frame.grid(row=0, column=0, rowspan=3, sticky="nswe")
     frame.grid_columnconfigure(0, weight=1)
-    frame.grid_rowconfigure(0, weight=0)
-    frame.grid_rowconfigure(1, weight=1)
-    frame.grid_rowconfigure(2, weight=0)
+    frame.grid_rowconfigure(0, weight=1)
+    frame.grid_rowconfigure(1, weight=0)
 
 show_frame(frame1)
 

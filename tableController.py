@@ -3,6 +3,7 @@ import os
 import sys
 import re
 import tempfile
+import webbrowser
 
 import requests
 import ipaddress
@@ -504,12 +505,14 @@ def get_max_vel(dist):
 # -------------------------------
 
 def get_files_arduino():
-    global result_data, result_conn, result_file
+    global result_data, result_conn, result_file, result_txt
     try:
         if not result_conn:
             messagebox.showwarning("Advertencia", "No se puede establecer conexion o no ingreso IP")
             return
         else:
+            result_txt = None
+
             ip = result_conn["ip"]
             response = requests.get(f'http://{ip}')
 
@@ -604,12 +607,52 @@ def on_listbox_select(event):
     seleccion = file_list.curselection()
 
     if not seleccion:
-        messagebox.showwarning("Advertencia", "No se seleccionó ningún archivo")
+        messagebox.showwarning("Advertencia", "No se seleccionó ningún archivo o la lista esta Vacia")
         return
     
     result_filename = file_list.get(seleccion)
 
 def plot_file_from_arduino():
+    global result_txt_arduino
+
+    if not result_txt_arduino:
+        messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
+        return
+    
+    lineas = result_txt_arduino.splitlines()
+
+    x = []
+    y = []
+    v = []
+
+    for linea in lineas:
+        valores = linea.split()
+
+        x.append(float(valores[0]))
+        y.append(float(valores[1]))
+        v.append(float(valores[2]))
+    
+    ax_2.clear()
+
+    cycles = len(x) - 1
+    time =  x[cycles] - x[0]
+    clc_frq = cycles / time
+
+    ax_2.plot(x, y, '#ee7218')
+    ax_2.set_xlabel("Tiempo (s)")
+    ax_2.set_ylabel("Amplitud")
+    plt.grid()
+    ax_2.grid(True)
+
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+    
+    ax_2.text(1, 1.05, f'Max Amp.= {max(y):.3f} mm',
+            fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
+
+    canvas_2.draw()
+
+def plot_file_from_local():
     global result_txt
 
     if not result_txt:
@@ -635,13 +678,14 @@ def plot_file_from_arduino():
 
     ax_2.plot(x, y, '#ee7218')
     ax_2.set_xlabel("Tiempo (s)")
+    ax_2.set_ylabel("Amplitud")
     plt.grid()
     ax_2.grid(True)
 
     ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
-    ax_2.text(1, 1.05, f'Max = {max(y):.3f} mm',
+    ax_2.text(1, 1.05, f'Max Amp.= {max(y):.3f} mm',
             fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
 
     canvas_2.draw()
@@ -649,7 +693,7 @@ def plot_file_from_arduino():
 # -------------------------------
 
 def load_file_data():
-    global result_txt, result_conn, result_filename
+    global result_txt, result_conn, result_filename, result_txt_arduino
 
     if not result_conn:
         messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
@@ -671,7 +715,7 @@ def load_file_data():
     
     loop_req = int(obj_select["size"]) // 5000
 
-    result_txt = ""
+    result_txt_arduino = ""
 
     for i in range(loop_req + 1):
         index = 5000 * i
@@ -689,7 +733,7 @@ def load_file_data():
             return
 
         req_resp = response.json()
-        result_txt += req_resp.get("data", "")
+        result_txt_arduino += req_resp.get("data", "")
 
     messagebox.showinfo("Completo", "Se recibieron los datos")
     plot_file_from_arduino()
@@ -740,7 +784,7 @@ def open_file():
     with open(filepath, 'rb') as file:
         result_txt = file.read()
 
-    plot_file_from_arduino()
+    plot_file_from_local()
     show_frame(frame2)
 
     # with open(filepath, 'r') as file:
@@ -807,9 +851,8 @@ def upload_file_in_chunks():
 
             files = {'file': (filename_og, chunk)}
             response = requests.post(f'http://{ip}', files=files)
-            
             if response.status_code != 200:
-                messagebox.showwarning("Advertencia", "Error al enviar datos")
+                messagebox.showwarning("Advertencia", "Simulacion Terminada")
                 break
 
             total_sent += len(chunk)
@@ -847,28 +890,47 @@ def resample_data():
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
         return
     
+    freq_val = resample_entry.get().strip()
+
+    if freq_val == "":
+        messagebox.showwarning("Advertencia", "Debe Ingresar valor de Reesampleo")
+        return
+    
+    try:
+        freq_val = float(freq_val)
+    except ValueError:
+        messagebox.showwarning("Advertencia", "El valor debe ser numérico")
+        return
+        
     lineas = result_txt.splitlines()
 
     x = []
     y = []
+    v = []
 
     for linea in lineas:
         valores = linea.split()
 
         x.append(float(valores[0]))
         y.append(float(valores[1]))
+
+    cycles = len(x) - 1
+    time =  x[cycles] - x[0]
+    clc_frq = cycles / time
     
-    x_re = x[::10]
-    y_re = y[::10]
+    resample_step = int(clc_frq / freq_val)
+
+    x_re = x[::resample_step]
+    y_re = y[::resample_step]
 
     x_re = np.array(x_re)
     y_re = np.array(y_re)
 
-    ax_2.clear()
+    cycles_2 = len(x_re) - 1
+    time_2 =  x_re[cycles_2] - x_re[0]
+    clc_frq_2 = cycles_2 / time_2
 
-    cycles = len(x_re) - 1
-    time =  x_re[cycles] - x_re[0]
-    clc_frq = cycles / time
+    ax_2.clear()
 
     max_value = max(y_re)
 
@@ -877,23 +939,30 @@ def resample_data():
     else:
         y_ree = y_re
 
+    index_max = np.argmax(np.abs(y_ree))
+
+    v =  np.array(abs(get_max_vel(y_ree))) 
+
     ax_2.plot(x_re, y_ree, '#ee7218')
+    # ax_2.plot(x_re,     v, '#1344d6')
+
     ax_2.set_xlabel("Tiempo (s)")
+    ax_2.set_ylabel("Amplitud")
     plt.grid()
     ax_2.grid(True)
 
-    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x_re)}',
+    ax_2.text(0, 1.05, f'Freq = {clc_frq_2:.2f} Hz | Npts = {len(x_re)}',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
-    ax_2.text(1, 1.05, f'Max = {max(y_ree):.3f} mm',
+    ax_2.text(1, 1.05, f'Max Amp.= {y_ree[index_max]:.3f} mm',
             fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
 
     canvas_2.draw()
 
     temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
 
-    for x_val, y_val in zip(x_re, y_ree):
-        temp_file.write(f"{x_val} {y_val}\n")
+    for x_val, y_val, v_val in zip(x_re, y_ree, v):
+        temp_file.write(f"   {x_val}      {y_val}      {int(v_val)}\n")
     
     temp_file.flush()
     
@@ -1005,6 +1074,38 @@ def create_tooltip(widget, text):
 
 # ------------------------------------
 
+def start_simulation():
+    global result_txt, result_conn, temp_file, result_filename
+
+    if not result_conn:
+        messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
+        return
+
+    ip = result_conn["ip"]
+
+    if not result_filename:
+        messagebox.showwarning("Advertencia", "No se puede encontrar nombre de Archivo")
+        return
+
+    send_sim = {
+        "filename" : result_filename,
+        "sism" : "ss"
+    }
+
+    try:
+        response = requests.post(f'http://{ip}', json=send_sim)
+
+        if response.status_code == 200:
+                    messagebox.showinfo("Enviado", f"Los datos se enviaron Correctamente")
+
+    except requests.Timeout:
+        t = ''
+    except requests.RequestException as e:
+        y = '' 
+    
+
+# ------------------------------------
+
 root = customtkinter.CTk()
 # root.overrideredirect(True)
 customtkinter.set_appearance_mode("dark")
@@ -1047,11 +1148,16 @@ help_img =  customtkinter.CTkImage(load_and_resize_image("./img/dark-help.png"),
 
 send_img  = customtkinter.CTkImage(load_and_resize_image("./img/enviar.png"),       size=(32,32))
 
+face_img  = customtkinter.CTkImage(load_and_resize_image("./img/facebook.png"),     size=(40,40))
+link_img  = customtkinter.CTkImage(load_and_resize_image("./img/linkedin.png"),     size=(40,40))
+quak_img  = customtkinter.CTkImage(load_and_resize_image("./img/quakesense.png"),   size=(230,65))
+
 onlin_img = customtkinter.CTkImage(load_and_resize_image("./img/status_online.png"),size=(16,16))
 error_img = customtkinter.CTkImage(load_and_resize_image("./img/status_error.png"), size=(16,16))
 
 disco_img = customtkinter.CTkImage(load_and_resize_image("./img/status_disconected.png"), size=(16,16))
 ncn_img   = customtkinter.CTkImage(load_and_resize_image("./img/NCN.ico"), size=(16,16))
+logo_img  = customtkinter.CTkImage(load_and_resize_image("./img/NCN.ico"), size=(80,80))
 
 ancho_pantalla = root.winfo_screenwidth() 
 alto_pantalla = root.winfo_screenheight() 
@@ -1066,6 +1172,10 @@ root.geometry(f"{ancho_ventana}x{alto_ventana}+{posicion_x}+{posicion_y}")
 root.minsize(1100, 620)
 
 bold_font = customtkinter.CTkFont(weight="bold")
+
+bold_font_info = customtkinter.CTkFont(weight="bold", size=20)
+
+important_info = customtkinter.CTkFont(size=16)
 
 root.grid_columnconfigure(1, weight=1)
 root.grid_rowconfigure(0, weight=1)
@@ -1128,15 +1238,15 @@ separator_3.grid(row=6, column=0, padx=5, pady=2, sticky="we")
 
 # -------------------------
 
-send_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=dsen_img, text="")
-send_button.grid(row=7, column=0, sticky="n")
+# send_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=dsen_img, text="")
+# send_button.grid(row=7, column=0, sticky="n")
 
 # -------------------------
 
 frame.grid_rowconfigure(8, weight=1)
 
-exit_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=help_img, text="")
-exit_button.grid(row=9, column=0, sticky="s") 
+info_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=help_img, text="", command=lambda: show_frame(frame3))
+info_button.grid(row=9, column=0, sticky="s") 
 
 # ----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1144,6 +1254,50 @@ frame1 = customtkinter.CTkFrame(frame_right)
 
 frame2 = customtkinter.CTkFrame(frame_right)
 
+frame3 = customtkinter.CTkFrame(frame_right)
+
+# -----------------------------------------------------------------------------------------
+
+info_panel = customtkinter.CTkFrame(frame3)
+info_panel.grid(row=0, column=0, rowspan=8, sticky="nswe")
+
+info_panel.grid_columnconfigure(0, weight=1)
+info_panel.grid_rowconfigure(0, weight=1)
+info_panel.grid_rowconfigure(11, weight=1)
+
+customtkinter.CTkLabel(info_panel, text="", image=logo_img).grid(row=1, column=0, sticky="nswe")
+
+customtkinter.CTkLabel(info_panel, text="NCN | Nuevo Control EIRL", font=bold_font_info).grid(row=2, column=0, sticky="nswe")
+
+customtkinter.CTkLabel(info_panel, text="Soluciones sísmicas para un mundo en constante movimiento.").grid(row=3, column=0, sticky="we")
+
+customtkinter.CTkLabel(info_panel, text="informes@ncn.pe | +51 945 962 848", font=bold_font).grid(row=4, column=0, sticky="we")
+
+rd_panel = customtkinter.CTkFrame(info_panel)
+rd_panel.grid(row=5, column=0)
+rd_panel.grid_columnconfigure(0, weight=1)
+rd_panel.grid_columnconfigure(3, weight=1)
+
+link_link = customtkinter.CTkLabel(rd_panel, text="", image=link_img)
+link_link.grid(row=0, column=1, padx=5, pady=5)
+
+face_link = customtkinter.CTkLabel(rd_panel, text="", image=face_img)
+face_link.grid(row=0, column=2, padx=5, pady=5)
+
+link_link.bind("<Button-1>", lambda event: webbrowser.open("https://www.linkedin.com/company/ncnpe/"))
+face_link.bind("<Button-1>", lambda event: webbrowser.open("https://www.facebook.com/ncnpe"))
+
+customtkinter.CTkLabel(info_panel, text="Desarrollado por:", font=bold_font).grid(row=6, column=0, sticky="we")
+
+customtkinter.CTkLabel(info_panel, text="Lucio Estacio Flores", font=important_info).grid(row=7, column=0, sticky="we")
+customtkinter.CTkLabel(info_panel, text="Pedro Cruz Santos", font=important_info).grid(row=8, column=0, sticky="we")
+
+customtkinter.CTkLabel(info_panel, text="Otras Soluciones", font=bold_font).grid(row=9, column=0, sticky="we")
+
+quake_link = customtkinter.CTkLabel(info_panel, text="", image=quak_img)
+quake_link.grid(row=10, column=0)
+
+quake_link.bind("<Button-1>", lambda event: webbrowser.open("https://qs.ncn.pe/home"))
 # -----------------------------------------------------------------------------------------
 
 canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
@@ -1154,49 +1308,59 @@ canvas_2.get_tk_widget().grid(row=0, column=0, sticky="nswe")
 sism_panel = customtkinter.CTkFrame(frame2)
 sism_panel.grid(row=0, column=1, rowspan=8, sticky="nswe")
 
-upload_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Auto Ajuste", command=resample_data)
-upload_button.grid(row=0, column=0, padx=5, pady=3, sticky="we")
+customtkinter.CTkLabel(sism_panel, text="Frecuencia (Hz)", font=bold_font).grid(row=0, column=0)
+
+resample_entry = customtkinter.CTkEntry(sism_panel, corner_radius=0)
+resample_entry.grid(row=1, column=0, padx=5, pady=3, sticky="we")
+
+resample_entry.configure(justify="center")
+
+resample_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Auto Ajuste", command=resample_data)
+resample_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
+
+upload_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Subir Archivo", command=upload_file_in_chunks)
+upload_button.grid(row=3, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=1, column=0, padx=5, pady=2, sticky="we")
+customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=4, column=0, padx=5, pady=2, sticky="we")
 
 #----------------------------
 
 search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Buscar", command=get_files_arduino)
-search_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
+search_button.grid(row=5, column=0, padx=5, pady=3, sticky="we")
 
 file_list = tk.Listbox(sism_panel, width=35, height=10)
-file_list.grid(row=3, column=0, padx=5)
+file_list.grid(row=6, column=0, padx=5)
 file_list.bind('<<ListboxSelect>>', on_listbox_select)
 
 load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
-load_button.grid(row=4, column=0, padx=5, pady=3, sticky="we")
+load_button.grid(row=7, column=0, padx=5, pady=3, sticky="we")
 
-delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Borrar", command=delete_file_arduino)
-delete_button.grid(row=5, column=0, padx=5, pady=3, sticky="we")
-
-#----------------------------
-
-customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=6, column=0, padx=5, pady=2, sticky="we")
+delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#205409", text="Borrar Archivo", command=delete_file_arduino)
+delete_button.grid(row=8, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Subir Archivo", command=upload_file_in_chunks)
-graph2_button.grid(row=7, column=0, padx=5, pady=3, sticky="we")
+# customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=8, column=0, padx=5, pady=2, sticky="we")
+
+#----------------------------
+
+# graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#3b9415", hover_color="#3e7d23", text="Inciar")
+# graph2_button.grid(row=9, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
 graph_control_2 = customtkinter.CTkFrame(frame2)
 graph_control_2.grid(row=1, column=0, sticky="nswe")
 
-play_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_animation)
+play_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_simulation)
 play_button_2.grid(row=0, column=0)
 
-pause_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="", command=stop_animation)
+pause_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="")
 pause_button_2.grid(row=0, column=1)
 
-reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
+reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="")
 reset_button_2.grid(row=0, column=2)
 
 save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
@@ -1378,6 +1542,8 @@ result_file = None
 result_txt  = None
 result_conn = None
 
+result_txt_arduino  = None
+
 temp_file = None
 filename_og = None
 filesize_og = None
@@ -1387,6 +1553,7 @@ filesize_og = None
 def show_frame(frame):
     frame1.grid_forget()
     frame2.grid_forget()
+    frame3.grid_forget()
     frame.grid(row=0, column=0, rowspan=3, sticky="nswe")
     frame.grid_columnconfigure(0, weight=1)
     frame.grid_rowconfigure(0, weight=1)

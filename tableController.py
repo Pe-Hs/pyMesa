@@ -634,58 +634,85 @@ def plot_file_from_arduino():
     
     ax_2.clear()
 
-    cycles = len(x) - 1
-    time =  x[cycles] - x[0]
+    ar_x = np.array(x)
+    ar_y = np.array(y)
+    ar_v = np.array(v)
+
+    cycles = len(ar_x) - 1
+    time =  ar_x[cycles] - ar_x[0]
     clc_frq = cycles / time
 
-    ax_2.plot(x, y, '#ee7218')
+    ax_2.plot(ar_x, ar_y, '#ee7218')
     ax_2.set_xlabel("Tiempo (s)")
     ax_2.set_ylabel("Amplitud")
-    plt.grid()
-    ax_2.grid(True)
 
-    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
+    index_max = np.argmax(np.abs(ar_y))
+
+    plt.grid()
+
+    ax_2.grid(True)
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(ar_x)}',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
-    ax_2.text(1, 1.05, f'Max Amp.= {max(y):.3f} mm',
+    ax_2.text(1, 1.05, f'Max Amp.= {ar_y[index_max]:.3f} mm',
             fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
 
     canvas_2.draw()
 
 def plot_file_from_local():
-    global result_txt
+    global result_txt, result_unit
 
     if not result_txt:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
         return
     
     lineas = result_txt.splitlines()
-
+    
     x = []
     y = []
 
     for linea in lineas:
         valores = linea.split()
 
-        x.append(float(valores[0]))
-        y.append(float(valores[1]))
+        try:
+            x.append(float(valores[0]))
+            y.append(float(valores[1]))
+        except:
+            result_txt = ''
+            messagebox.showwarning("Advertencia", "El archivo no tiene el Formato Correcto")
+            return
+        
     
     ax_2.clear()
 
-    cycles = len(x) - 1
-    time =  x[cycles] - x[0]
+    ar_x = np.array(x)
+    a_y = np.array(y)
+
+    if result_unit == "cm":
+        ar_y = a_y * 10
+    elif result_unit == "m":
+        ar_y = a_y * 1000
+    else:
+        ar_y = a_y * 1
+
+    cycles = len(ar_x) - 1
+    time =  ar_x[cycles] - ar_x[0]
     clc_frq = cycles / time
 
-    ax_2.plot(x, y, '#ee7218')
+    index_max = np.argmax(np.abs(ar_y))
+
+    ax_2.plot(ar_x, ar_y, '#ee7218')
     ax_2.set_xlabel("Tiempo (s)")
     ax_2.set_ylabel("Amplitud")
+
+    
     plt.grid()
     ax_2.grid(True)
 
     ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
-    ax_2.text(1, 1.05, f'Max Amp.= {max(y):.3f} mm',
+    ax_2.text(1, 1.05, f'Max Amp.= {ar_y[index_max]:.3f} mm',
             fontsize=10, verticalalignment='top', horizontalalignment='right', color='black', transform=ax_2.transAxes)
 
     canvas_2.draw()
@@ -784,28 +811,44 @@ def open_file():
     with open(filepath, 'rb') as file:
         result_txt = file.read()
 
-    plot_file_from_local()
-    show_frame(frame2)
+    dialog_select_unit(root)
+   
 
-    # with open(filepath, 'r') as file:
-    #     for line in file:
-    #         parts = div.split(line.strip())
+def dialog_select_unit(root):
+    global result_unit
 
-    #         if len(parts) == 2:
-    #             try:
-    #                 num1 = float(parts[0])
-    #                 num2 = float(parts[1])
+    def on_submit():
+        global result_unit
 
-    #                 x.append(num1)
-    #                 y.append(num2)
-    #             except ValueError:
-    #                 d = ''
+        plot_file_from_local()
+        show_frame(frame2)
+
+        dialog.destroy()
     
-    # if not x or not y:
-    #     messagebox.showwarning("Advertencia", "No se consiguieron Datos")
-    # else:
-    #     plot_file_from_arduino()
-    #     show_frame(frame2)
+    def radio_change():
+        global result_unit
+        result_unit = opt_value.get()
+
+    dialog = tk.Toplevel(root)
+    dialog.title("Conexion con la Mesa")
+
+    dialog.grid_columnconfigure(0, weight=1)
+
+    opt_value = tk.StringVar(value="none")
+
+    rad_utp = tk.Radiobutton(dialog, text="Unidad en Centimetros (cm)", variable=opt_value, value="cm", command=radio_change)
+    rad_utp.grid(row=0, column=0)
+
+    rad_wif = tk.Radiobutton(dialog, text="Unidad en Milimetros (mm)", variable=opt_value, value="mm", command=radio_change)
+    rad_wif.grid(row=1, column=0)
+
+    rad_ent = tk.Radiobutton(dialog, text="Unidad en Metros (m)", variable=opt_value, value="m", command=radio_change)
+    rad_ent.grid(row=2, column=0)
+
+    submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
+    submit_button.grid(row=3, columnspan=2, padx=5, pady=5, sticky="ew")
+
+    center_dialog(dialog, root)
 
 def upload_file_in_chunks():
     global result_txt, result_conn, temp_file, filename_og
@@ -884,7 +927,7 @@ def calculate_bytes_for_lines(file, num_lines=1000):
     return total_bytes
 
 def resample_data():
-    global result_txt, temp_file
+    global result_txt, temp_file, result_unit
 
     if not result_txt:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
@@ -913,35 +956,42 @@ def resample_data():
 
         x.append(float(valores[0]))
         y.append(float(valores[1]))
-
-    cycles = len(x) - 1
-    time =  x[cycles] - x[0]
-    clc_frq = cycles / time
     
-    resample_step = int(clc_frq / freq_val)
+    if result_unit == "cm":
+        factor = 10
+    elif result_unit == "m":
+        factor = 1000
+    else:
+        factor = 1 
+    
+    x = np.array(x) 
+    y = np.array(y) * factor
 
-    x_re = x[::resample_step]
-    y_re = y[::resample_step]
+    x_re = np.arange(x[0], x[-1], 1/freq_val)
 
-    x_re = np.array(x_re)
-    y_re = np.array(y_re)
+    y_re = np.interp(x_re, x, y)
 
-    cycles_2 = len(x_re) - 1
-    time_2 =  x_re[cycles_2] - x_re[0]
-    clc_frq_2 = cycles_2 / time_2
+    cycles = len(x_re) - 1
+    time =  x_re[cycles] - x_re[0]
+    clc_frq = cycles / time
 
     ax_2.clear()
 
-    max_value = max(y_re)
+    # max_value = max(y_re)
 
-    if max_value > 50:
-        y_ree = ( y_re / max_value) * 50
+    max_value = abs(y_re[np.argmax(np.abs(y_re))])
+
+    if max_value > 45:
+        y_ree = ( y_re / max_value) * 45
     else:
         y_ree = y_re
 
     index_max = np.argmax(np.abs(y_ree))
 
-    v =  np.array(abs(get_max_vel(y_ree))) 
+    # v =  np.array(abs(get_max_vel(y_ree))) 
+    v = np.diff(y_ree) / np.diff(x_re)
+    v = np.insert(v, 0, 0)
+    v = np.abs(v)
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
@@ -951,7 +1001,7 @@ def resample_data():
     plt.grid()
     ax_2.grid(True)
 
-    ax_2.text(0, 1.05, f'Freq = {clc_frq_2:.2f} Hz | Npts = {len(x_re)}',
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | Npts = {len(x_re)}',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
     ax_2.text(1, 1.05, f'Max Amp.= {y_ree[index_max]:.3f} mm',
@@ -1315,7 +1365,7 @@ resample_entry.grid(row=1, column=0, padx=5, pady=3, sticky="we")
 
 resample_entry.configure(justify="center")
 
-resample_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Auto Ajuste", command=resample_data)
+resample_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Auto Ajuste*", command=resample_data)
 resample_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
 
 upload_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Subir Archivo", command=upload_file_in_chunks)
@@ -1337,7 +1387,7 @@ file_list.bind('<<ListboxSelect>>', on_listbox_select)
 load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
 load_button.grid(row=7, column=0, padx=5, pady=3, sticky="we")
 
-delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#205409", text="Borrar Archivo", command=delete_file_arduino)
+delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#8f0303", text="Borrar Archivo", command=delete_file_arduino)
 delete_button.grid(row=8, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
@@ -1541,6 +1591,7 @@ result_data = None
 result_file = None
 result_txt  = None
 result_conn = None
+result_unit = None
 
 result_txt_arduino  = None
 

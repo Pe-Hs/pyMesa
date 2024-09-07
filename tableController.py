@@ -177,26 +177,26 @@ def start_animation():
         "inf" : False
     }
     
-    plot_graph_sen()
+    # plot_graph_sen()
 
-    if ani is not None:
-        canvas.draw()
-        ani.event_source.start()
-    else:
-        return
+    # if ani is not None:
+    #     canvas.draw()
+    #     ani.event_source.start()
+    # else:
+    #     return
     
     # --------------------------
 
-    # send_info_table()
+    send_info_table()
 
-    # if conn_estab:
-    #     plot_graph_sen()
+    if conn_estab:
+        plot_graph_sen()
 
-    #     if ani is not None:
-    #         canvas.draw()
-    #         ani.event_source.start()
-    # else:
-    #     return
+        if ani is not None:
+            canvas.draw()
+            ani.event_source.start()
+    else:
+        return
     
 def stop_animation():
     global ani
@@ -253,7 +253,7 @@ def dialog_connect_server(root):
             return
         
         try:
-            response = requests.get(f'http://{ip}')
+            response = requests.get(f'http://{ip}', timeout=5)
 
             if response.status_code == 200:
                 img_status.configure(image=onlin_img)
@@ -264,7 +264,7 @@ def dialog_connect_server(root):
         except requests.Timeout:
                 img_status.configure(image=disco_img)
                 status_label.configure(text="TimeOut")
-        except requests.RequestException:
+        except requests.RequestException as e:
                 img_status.configure(image=error_img)
                 status_label.configure(text="Error")
 
@@ -626,6 +626,7 @@ def plot_file_from_arduino():
     v = []
 
     for linea in lineas:
+        print(linea)
         valores = linea.split()
 
         x.append(float(valores[0]))
@@ -637,6 +638,9 @@ def plot_file_from_arduino():
     ar_x = np.array(x)
     ar_y = np.array(y)
     ar_v = np.array(v)
+
+    for a, b, c in zip(ar_x, ar_y, ar_v):
+        print(a, " -- ", b, " -- ", c)
 
     cycles = len(ar_x) - 1
     time =  ar_x[cycles] - ar_x[0]
@@ -866,15 +870,11 @@ def upload_file_in_chunks():
     if not filename_og:
         messagebox.showwarning("Advertencia", "No se puede obtener el Nombre del Archivo")
         return
-    # filepath = filedialog.askopenfilename()
 
-    # if not filepath:
-    #     messagebox.showwarning("Advertencia", "No se Selecciono Archivo")
-    #     return
-    
-    # filename = os.path.basename(filepath)
     file_size = os.path.getsize(temp_file.name)
-    
+
+    print(file_size)
+
     progress_bar.configure(mode="determinate")  
     progress_bar.set(0)  
     progress_bar.start()
@@ -883,6 +883,7 @@ def upload_file_in_chunks():
         total_sent = 0
         while True:
             chunk_size = calculate_bytes_for_lines(file, 100)
+            print(chunk_size)
             if chunk_size == 0:
                 break
 
@@ -981,8 +982,8 @@ def resample_data():
 
     max_value = abs(y_re[np.argmax(np.abs(y_re))])
 
-    if max_value > 45:
-        y_ree = ( y_re / max_value) * 45
+    if max_value > 30:
+        y_ree = ( y_re / max_value) * 30
     else:
         y_ree = y_re
 
@@ -1012,7 +1013,8 @@ def resample_data():
     temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
 
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
-        temp_file.write(f"   {x_val}      {y_val}      {int(v_val)}\n")
+        print(f"{x_val:.3f}", " --- ", f" {y_val:.3f}", " --- " , f"{int(v_val)}")
+        temp_file.write(f"   {x_val:.3f}      {y_val}      {v_val}\n")
     
     temp_file.flush()
     

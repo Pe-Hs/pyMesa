@@ -626,7 +626,6 @@ def plot_file_from_arduino():
     v = []
 
     for linea in lineas:
-        print(linea)
         valores = linea.split()
 
         x.append(float(valores[0]))
@@ -638,9 +637,6 @@ def plot_file_from_arduino():
     ar_x = np.array(x)
     ar_y = np.array(y)
     ar_v = np.array(v)
-
-    for a, b, c in zip(ar_x, ar_y, ar_v):
-        print(a, " -- ", b, " -- ", c)
 
     cycles = len(ar_x) - 1
     time =  ar_x[cycles] - ar_x[0]
@@ -873,8 +869,6 @@ def upload_file_in_chunks():
 
     file_size = os.path.getsize(temp_file.name)
 
-    print(file_size)
-
     progress_bar.configure(mode="determinate")  
     progress_bar.set(0)  
     progress_bar.start()
@@ -883,7 +877,6 @@ def upload_file_in_chunks():
         total_sent = 0
         while True:
             chunk_size = calculate_bytes_for_lines(file, 100)
-            print(chunk_size)
             if chunk_size == 0:
                 break
 
@@ -1013,8 +1006,7 @@ def resample_data():
     temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
 
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
-        print(f"{x_val:.3f}", " --- ", f" {y_val:.3f}", " --- " , f"{int(v_val)}")
-        temp_file.write(f"   {x_val:.3f}      {y_val}      {v_val}\n")
+        temp_file.write(f"   {x_val}      {y_val}      {v_val:.4f}\n")
     
     temp_file.flush()
     
@@ -1148,7 +1140,7 @@ def start_simulation():
         response = requests.post(f'http://{ip}', json=send_sim)
 
         if response.status_code == 200:
-                    messagebox.showinfo("Enviado", f"Los datos se enviaron Correctamente")
+            messagebox.showinfo("Enviado", f"La Simulacion se ah Completado")
 
     except requests.Timeout:
         t = ''

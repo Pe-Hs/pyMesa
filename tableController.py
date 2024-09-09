@@ -165,14 +165,14 @@ def animate():
     # canvas.draw()
 
 def start_animation():
-    global ani, result_data, result_conn
+    global ani, result_data, result_conn, amp_real_value, fre_real_value
 
     amp_l = amp_label.cget("text")[:-3]
     fre_l = freq_label.cget("text")[:-3]
 
     result_data = {
-        "amp" : f"{float(amp_l):.2f}",
-        "freq": f"{float(fre_l):.2f}",
+        "amp" : f"{float(amp_real_value):.2f}",
+        "freq": f"{float(fre_real_value):.2f}",
         "dur" : 1,  
         "inf" : False
     }
@@ -437,65 +437,6 @@ def check_result_data():
 
 # -------------------------------
 
-def update_ampl(value):
-    global ani, result_data
-
-    amp = str(amp_input.get()) if str(amp_input.get()) else value
-
-    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
-
-    max_vel = get_max_vel(m_dist)
-
-    freq = str(freq_input.get()) if str(freq_input.get()) else value 
-
-    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
-
-    new_speed = freq * (2 * math.PI)
-
-    result_data = {
-        "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
-        "f_amp" : f"{float(amp):.2f}",
-        "f_freq": f"{float(m_speed):.2f}",
-        "dur" : 1,  
-        "inf" : False
-    }
-
-    # send_info_table()
-
-    amp_label.configure(text=f"{int(m_dist)} mm")
-    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
-    # plot_graph_sen()
-
-def update_freq(value):
-    global ani, result_data
-
-    amp = str(amp_input.get()) if str(amp_input.get()) else value
-
-    m_dist = calibrate_slider(amp, 30, 1015, 0, 30)
-
-    max_vel = get_max_vel(m_dist)
-
-    freq = str(freq_input.get()) if str(freq_input.get()) else value
-
-    m_speed = calibrate_slider(freq, 20, 1015, 0, max_vel)
-
-    new_speed = m_speed / (2 * 3.14)
-
-    result_data = {
-        "amp" : f"{float(amp):.2f}",
-        "freq": f"{float(freq):.2f}",
-        "f_amp" : f"{float(amp):.2f}",
-        "f_freq": f"{float(m_speed):.2f}",
-        "dur" : 1,  
-        "inf" : False
-    }
-
-    # send_info_table()
-    amp_label.configure(text=f"{float(m_dist)} mm")
-    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
-    # plot_graph_sen()
-
 def calibrate_slider(val, in_min, in_max, out_min, out_max):
     return (float(val) - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
@@ -613,10 +554,14 @@ def on_listbox_select(event):
     result_filename = file_list.get(seleccion)
 
 def plot_file_from_arduino():
-    global result_txt_arduino
+    global result_txt_arduino, result_filename
 
     if not result_txt_arduino:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
+        return
+
+    if not result_filename:
+        messagebox.showwarning("Advertencia", "No se encontro nombre de Archivo")
         return
     
     lineas = result_txt_arduino.splitlines()
@@ -644,14 +589,18 @@ def plot_file_from_arduino():
 
     ax_2.plot(ar_x, ar_y, '#ee7218')
     ax_2.set_xlabel("Tiempo (s)")
-    ax_2.set_ylabel("Amplitud")
+    ax_2.set_ylabel("Amplitud (mm)")
 
     index_max = np.argmax(np.abs(ar_y))
 
     plt.grid()
 
     ax_2.grid(True)
-    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(ar_x)}',
+
+    ax_2.text(0, 1.10, f'Arduino File: {result_filename}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+    
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(ar_x)} Valores',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
     ax_2.text(1, 1.05, f'Max Amp.= {ar_y[index_max]:.3f} mm',
@@ -660,7 +609,7 @@ def plot_file_from_arduino():
     canvas_2.draw()
 
 def plot_file_from_local():
-    global result_txt, result_unit
+    global result_txt, result_unit, filename_og
 
     if not result_txt:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
@@ -703,13 +652,16 @@ def plot_file_from_local():
 
     ax_2.plot(ar_x, ar_y, '#ee7218')
     ax_2.set_xlabel("Tiempo (s)")
-    ax_2.set_ylabel("Amplitud")
+    ax_2.set_ylabel("Amplitud (mm)")
 
     
     plt.grid()
     ax_2.grid(True)
 
-    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)}',
+    ax_2.text(0, 1.10, f'Local File: {filename_og}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x)} Valores',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
     ax_2.text(1, 1.05, f'Max Amp.= {ar_y[index_max]:.3f} mm',
@@ -984,18 +936,21 @@ def resample_data():
 
     # v =  np.array(abs(get_max_vel(y_ree))) 
     v = np.diff(y_ree) / np.diff(x_re)
-    v = np.insert(v, 0, 0)
+    # v = np.insert(v, 0, 0.1)
     v = np.abs(v)
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
 
     ax_2.set_xlabel("Tiempo (s)")
-    ax_2.set_ylabel("Amplitud")
+    ax_2.set_ylabel("Amplitud (mm)")
     plt.grid()
     ax_2.grid(True)
 
-    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | Npts = {len(x_re)}',
+    ax_2.text(0, 1.10, f'Resampled File: {filename_og}',
+            fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
+    
+    ax_2.text(0, 1.05, f'Freq = {clc_frq:.2f} Hz | {len(x_re)} Valores',
             fontsize=10, verticalalignment='top', horizontalalignment='left', color='black', transform=ax_2.transAxes)
     
     ax_2.text(1, 1.05, f'Max Amp.= {y_ree[index_max]:.3f} mm',
@@ -1006,6 +961,7 @@ def resample_data():
     temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
 
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
+        print(f"   {x_val}      {y_val}      {v_val:.4f}")
         temp_file.write(f"   {x_val}      {y_val}      {v_val:.4f}\n")
     
     temp_file.flush()
@@ -1058,6 +1014,8 @@ def pause_loop():
 # ------------------------------
 
 def adjust_value_amp(increment):
+    global amp_real_value, fre_real_value
+
     current_value = amp_value.get()
     if amp_10.get():
         step = 10
@@ -1072,18 +1030,25 @@ def adjust_value_amp(increment):
     new_value = round(current_value + step * increment, 2)    
 
     m_dist = calibrate_slider(new_value, 0, 30, 30, 1015)
+
+    amp_real_value = m_dist
     
-    if m_dist >= 1015:
+    if m_dist > 1015:
         amp_value.set(30.00)
-        amp_label.configure(text=f"{float(m_dist):.2f} mm")
-    elif m_dist <= 0 or new_value <= 0:
+        amp_real_value = float(30.00)
+        amp_label.configure(text="30.00 mm")
+    elif m_dist < 0 or new_value < 0:
         amp_value.set(0.00)
-        amp_label.configure(text=f"{float(0.00):.2f} mm")
+        amp_real_value = float(0.00)
+        amp_label.configure(text="0.00 mm")
     else:
         amp_value.set(new_value)
-        amp_label.configure(text=f"{float(m_dist):.2f} mm")
+        amp_real_value = round(float(m_dist), 2)
+        amp_label.configure(text=f"{float(new_value):.2f} mm")
     
 def adjust_value_freq(increment):
+    global amp_real_value, fre_real_value
+
     current_value = freq_value.get()
     if freq_10.get():
         step = 10
@@ -1096,11 +1061,13 @@ def adjust_value_freq(increment):
     else:
         step = 0
     new_value = round(current_value + step * increment, 2)
+
     freq_value.set(new_value)
-    
     new_speed = new_value * (2 * 3.14)
 
-    freq_label.configure(text=f"{float(new_speed):.2f} Hz")
+    fre_real_value = new_speed
+
+    freq_label.configure(text=f"{float(new_value):.2f} ")
 
 def create_tooltip(widget, text):
     tooltip = customtkinter.CTkLabel(root, text=text, fg_color="#333332", bg_color="transparent", text_color="white", corner_radius=5)
@@ -1308,6 +1275,7 @@ info_panel.grid(row=0, column=0, rowspan=8, sticky="nswe")
 info_panel.grid_columnconfigure(0, weight=1)
 info_panel.grid_rowconfigure(0, weight=1)
 info_panel.grid_rowconfigure(11, weight=1)
+info_panel.grid_rowconfigure(14, weight=1)
 
 customtkinter.CTkLabel(info_panel, text="", image=logo_img).grid(row=1, column=0, sticky="nswe")
 
@@ -1342,6 +1310,11 @@ quake_link = customtkinter.CTkLabel(info_panel, text="", image=quak_img)
 quake_link.grid(row=10, column=0)
 
 quake_link.bind("<Button-1>", lambda event: webbrowser.open("https://qs.ncn.pe/home"))
+
+customtkinter.CTkLabel(info_panel, text="NCN | Shake Table Controller", font=bold_font).grid(row=12, column=0, sticky="we")
+
+customtkinter.CTkLabel(info_panel, text="Version 1.0.0").grid(row=13, column=0, sticky="nwe")
+
 # -----------------------------------------------------------------------------------------
 
 canvas_2 = FigureCanvasTkAgg(fig_2, master=frame2)
@@ -1359,7 +1332,7 @@ resample_entry.grid(row=1, column=0, padx=5, pady=3, sticky="we")
 
 resample_entry.configure(justify="center")
 
-resample_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Auto Ajuste*", command=resample_data)
+resample_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Auto Ajuste *", command=resample_data)
 resample_button.grid(row=2, column=0, padx=5, pady=3, sticky="we")
 
 upload_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#144196", hover_color="#0a204a", text="Subir Archivo", command=upload_file_in_chunks)
@@ -1374,7 +1347,7 @@ customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(r
 search_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Buscar", command=get_files_arduino)
 search_button.grid(row=5, column=0, padx=5, pady=3, sticky="we")
 
-file_list = tk.Listbox(sism_panel, width=35, height=10)
+file_list = tk.Listbox(sism_panel, width=40, height=10)
 file_list.grid(row=6, column=0, padx=5)
 file_list.bind('<<ListboxSelect>>', on_listbox_select)
 
@@ -1386,12 +1359,22 @@ delete_button.grid(row=8, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-# customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=8, column=0, padx=5, pady=2, sticky="we")
+download_button = customtkinter.CTkButton(sism_panel, height=32, corner_radius=0, fg_color="#3b9415", hover_color="#3e7d23", text="Descargar Archivo")
+download_button.grid(row=9, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-# graph2_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#3b9415", hover_color="#3e7d23", text="Inciar")
-# graph2_button.grid(row=9, column=0, padx=5, pady=3, sticky="we")
+customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=10, column=0, padx=5, pady=2, sticky="we")
+
+#----------------------------
+
+sism_text = customtkinter.CTkTextbox(sism_panel, wrap=tk.WORD)
+sism_text.grid(row=11, column=0, padx=5, pady=2 , sticky="we")
+
+sism_text.insert(tk.END, "* Se ajusta la cantidad de datos para que puedan ser simulados adecuadamente en la mesa vibradora. Además, la amplitud máxima del evento se reemplaza por el máximo margen permitido de la mesa vibradora.")
+
+sism_text.configure(state=tk.DISABLED)
+
 
 #----------------------------
 
@@ -1401,14 +1384,11 @@ graph_control_2.grid(row=1, column=0, sticky="nswe")
 play_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_simulation)
 play_button_2.grid(row=0, column=0)
 
-pause_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=pause_img, text="")
-pause_button_2.grid(row=0, column=1)
-
 reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="")
-reset_button_2.grid(row=0, column=2)
+reset_button_2.grid(row=0, column=1)
 
 save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
-save_button_2.grid(row=0, column=3)
+save_button_2.grid(row=0, column=2)
 
 # -----------------------------------------------------------------------------------------
 
@@ -1592,6 +1572,9 @@ result_txt_arduino  = None
 temp_file = None
 filename_og = None
 filesize_og = None
+
+amp_real_value = None
+fre_real_value = None
 
 # ---------------------------
 

@@ -170,6 +170,8 @@ def start_animation():
     amp_l = amp_label.cget("text")[:-3]
     fre_l = freq_label.cget("text")[:-3]
 
+    print(amp_real_value, fre_real_value) 
+
     result_data = {
         "amp" : f"{float(amp_real_value):.2f}",
         "freq": f"{float(fre_real_value):.2f}",
@@ -583,6 +585,9 @@ def plot_file_from_arduino():
     ar_y = np.array(y)
     ar_v = np.array(v)
 
+    for a, b, c in zip(ar_x, ar_y, ar_v):
+        print(a, " -- ", b, " -- ", c)
+
     cycles = len(ar_x) - 1
     time =  ar_x[cycles] - ar_x[0]
     clc_frq = cycles / time
@@ -934,10 +939,10 @@ def resample_data():
 
     index_max = np.argmax(np.abs(y_ree))
 
-    # v =  np.array(abs(get_max_vel(y_ree))) 
-    v = np.diff(y_ree) / np.diff(x_re)
-    # v = np.insert(v, 0, 0.1)
-    v = np.abs(v)
+    v =  np.array(abs(get_max_vel(y_ree))) 
+    # v = np.diff(y_ree) / np.diff(x_re)
+    # # v = np.insert(v, len(v) - 1 , 0.1)
+    # v = np.abs(v)
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
@@ -963,7 +968,7 @@ def resample_data():
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
         print(f"   {x_val}      {y_val}      {v_val:.4f}")
         temp_file.write(f"   {x_val}      {y_val}      {v_val:.4f}\n")
-    
+    print(" -------------------------------------------- ")
     temp_file.flush()
     
 # ------------------------------
@@ -1042,6 +1047,7 @@ def adjust_value_amp(increment):
         amp_real_value = float(0.00)
         amp_label.configure(text="0.00 mm")
     else:
+        print(m_dist)
         amp_value.set(new_value)
         amp_real_value = round(float(m_dist), 2)
         amp_label.configure(text=f"{float(new_value):.2f} mm")
@@ -1061,8 +1067,8 @@ def adjust_value_freq(increment):
     else:
         step = 0
     new_value = round(current_value + step * increment, 2)
-
     freq_value.set(new_value)
+
     new_speed = new_value * (2 * 3.14)
 
     fre_real_value = new_speed

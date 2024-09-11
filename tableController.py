@@ -4,6 +4,7 @@ import sys
 import re
 import tempfile
 import webbrowser
+import threading
 
 import requests
 import ipaddress
@@ -170,11 +171,11 @@ def start_animation():
     amp_l = amp_label.cget("text")[:-3]
     fre_l = freq_label.cget("text")[:-3]
 
-    print(amp_real_value, fre_real_value) 
+    # print(amp_real_value, fre_real_value) 
 
     result_data = {
         "amp" : f"{float(amp_real_value):.2f}",
-        "freq": f"{float(fre_real_value):.2f}",
+        "freq": f"{float(fre_real_value + 0.28):.2f}",
         "dur" : 1,  
         "inf" : False
     }
@@ -243,6 +244,7 @@ def dialog_connect_server(root):
         global result_conn
 
         ip =  ip_entry.get().strip() if ip_entry.get() != ""  else opt_value.get().strip() 
+
         if not ip :
             dialog.focus_set()
             messagebox.showwarning("Advertencia", "La Direccion IP es obligatoria", parent=dialog)
@@ -258,21 +260,25 @@ def dialog_connect_server(root):
             response = requests.get(f'http://{ip}', timeout=5)
 
             if response.status_code == 200:
+                result_conn = {
+                    "ip" : ip,
+                }
                 img_status.configure(image=onlin_img)
                 status_label.configure(text="Conectado")
             else:
+                result_conn = None
                 img_status.configure(image=error_img)
                 status_label.configure(text="Error")
         except requests.Timeout:
+                result_conn = None
                 img_status.configure(image=disco_img)
                 status_label.configure(text="TimeOut")
         except requests.RequestException as e:
+                result_conn = None
                 img_status.configure(image=error_img)
                 status_label.configure(text="Error")
 
-        result_conn = {
-            "ip" : ip,
-        }
+       
 
         dialog.destroy()
     
@@ -585,8 +591,8 @@ def plot_file_from_arduino():
     ar_y = np.array(y)
     ar_v = np.array(v)
 
-    for a, b, c in zip(ar_x, ar_y, ar_v):
-        print(a, " -- ", b, " -- ", c)
+    # for a, b, c in zip(ar_x, ar_y, ar_v):
+    #     print(a, " -- ", b, " -- ", c)
 
     cycles = len(ar_x) - 1
     time =  ar_x[cycles] - ar_x[0]
@@ -939,10 +945,10 @@ def resample_data():
 
     index_max = np.argmax(np.abs(y_ree))
 
-    v =  np.array(abs(get_max_vel(y_ree))) 
-    # v = np.diff(y_ree) / np.diff(x_re)
-    # # v = np.insert(v, len(v) - 1 , 0.1)
-    # v = np.abs(v)
+    # v =  np.array(abs(get_max_vel(y_ree))) 
+    v = np.diff(y_ree) / np.diff(x_re)
+    # v = np.insert(v, len(v) - 1 , 0.1)
+    v = np.abs(v)
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
@@ -966,9 +972,9 @@ def resample_data():
     temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt')
 
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
-        print(f"   {x_val}      {y_val}      {v_val:.4f}")
+        # print(f"   {x_val}      {y_val}      {v_val:.4f}")
         temp_file.write(f"   {x_val}      {y_val}      {v_val:.4f}\n")
-    print(" -------------------------------------------- ")
+    # print(" -------------------------------------------- ")
     temp_file.flush()
     
 # ------------------------------
@@ -1047,7 +1053,7 @@ def adjust_value_amp(increment):
         amp_real_value = float(0.00)
         amp_label.configure(text="0.00 mm")
     else:
-        print(m_dist)
+        # print(m_dist)
         amp_value.set(new_value)
         amp_real_value = round(float(m_dist), 2)
         amp_label.configure(text=f"{float(new_value):.2f} mm")
@@ -1103,23 +1109,32 @@ def start_simulation():
     if not result_filename:
         messagebox.showwarning("Advertencia", "No se puede encontrar nombre de Archivo")
         return
+    
+    thread = threading.Thread(target=send_simulation_request, args=(ip, result_filename))
+    thread.start()
 
+def send_simulation_request(ip, filename):
     send_sim = {
-        "filename" : result_filename,
-        "sism" : "ss"
+        "filename": filename,
+        "sism": "ss"
     }
 
     try:
         response = requests.post(f'http://{ip}', json=send_sim)
 
         if response.status_code == 200:
-            messagebox.showinfo("Enviado", f"La Simulacion se ah Completado")
+            messagebox.showinfo("Enviado", "La Simulación se ha completado")
+        else:
+            messagebox.showerror("Error", "La Simulación falló")
 
     except requests.Timeout:
-        t = ''
+        messagebox.showerror("Error", "La solicitud ha expirado")
     except requests.RequestException as e:
-        y = '' 
-    
+        messagebox.showerror("Error", f"Ocurrió un error: {e}")
+
+
+def stop_simulation():
+    pause_loop()
 
 # ------------------------------------
 
@@ -1390,7 +1405,7 @@ graph_control_2.grid(row=1, column=0, sticky="nswe")
 play_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=start_img, text="", command=start_simulation)
 play_button_2.grid(row=0, column=0)
 
-reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="")
+reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=stop_simulation)
 reset_button_2.grid(row=0, column=1)
 
 save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
@@ -1579,8 +1594,8 @@ temp_file = None
 filename_og = None
 filesize_og = None
 
-amp_real_value = None
-fre_real_value = None
+amp_real_value = 1
+fre_real_value = 1
 
 # ---------------------------
 

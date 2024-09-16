@@ -140,6 +140,7 @@ def update(frame):
         ax.axvline(x=vertical_line_x, color='blue', linestyle='--')
     
     amp_val = float(amp_input.get()) if amp_input.get() else 1
+    # TODO: Añadir freq relativa
     fre_val = float(freq_input.get()) if freq_input.get() else 1
     point_y = amp_val * np.sin(2 * np.pi * fre_val * vertical_line_x) 
 
@@ -175,31 +176,31 @@ def start_animation():
 
     result_data = {
         "amp" : f"{float(amp_real_value):.2f}",
-        "freq": f"{float(fre_real_value + 0.28):.2f}",
+        "freq": f"{float(fre_real_value):.2f}",
         "dur" : 1,  
         "inf" : False
     }
     
-    # plot_graph_sen()
+    plot_graph_sen()
 
-    # if ani is not None:
-    #     canvas.draw()
-    #     ani.event_source.start()
-    # else:
-    #     return
+    if ani is not None:
+        canvas.draw()
+        ani.event_source.start()
+    else:
+        return
     
     # --------------------------
 
-    send_info_table()
+    # send_info_table()
 
-    if conn_estab:
-        plot_graph_sen()
+    # if conn_estab:
+    #     plot_graph_sen()
 
-        if ani is not None:
-            canvas.draw()
-            ani.event_source.start()
-    else:
-        return
+    #     if ani is not None:
+    #         canvas.draw()
+    #         ani.event_source.start()
+    # else:
+    #     return
     
 def stop_animation():
     global ani
@@ -264,19 +265,19 @@ def dialog_connect_server(root):
                     "ip" : ip,
                 }
                 img_status.configure(image=onlin_img)
-                status_label.configure(text="Conectado")
+                status_label.configure(text="Conectado ")
             else:
                 result_conn = None
                 img_status.configure(image=error_img)
-                status_label.configure(text="Error")
+                status_label.configure(text="Error ")
         except requests.Timeout:
                 result_conn = None
                 img_status.configure(image=disco_img)
-                status_label.configure(text="TimeOut")
+                status_label.configure(text="TimeOut ")
         except requests.RequestException as e:
                 result_conn = None
                 img_status.configure(image=error_img)
-                status_label.configure(text="Error")
+                status_label.configure(text="Error ")
 
        
 
@@ -295,13 +296,13 @@ def dialog_connect_server(root):
 
     opt_value = tk.StringVar(value="none")
 
-    rad_utp = tk.Radiobutton(dialog, text="Conexion Cable Internet", variable=opt_value, value="192.168.1.170", command=radio_change)
+    rad_utp = tk.Radiobutton(dialog, text="Conexion Cable UTP", variable=opt_value, value="192.168.1.170", command=radio_change)
     rad_utp.grid(row=0, column=0)
 
     rad_wif = tk.Radiobutton(dialog, text="Conexion WIFI", variable=opt_value, value="192.168.1.160", command=radio_change)
     rad_wif.grid(row=1, column=0)
 
-    rad_ent = tk.Radiobutton(dialog, text="Connexion IP", variable=opt_value, value="enable", command=radio_change)
+    rad_ent = tk.Radiobutton(dialog, text="Conexion IP", variable=opt_value, value="enable", command=radio_change)
     rad_ent.grid(row=2, column=0)
 
     ip_entry = tk.Entry(dialog)
@@ -449,7 +450,8 @@ def calibrate_slider(val, in_min, in_max, out_min, out_max):
     return (float(val) - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 def get_max_vel(dist):
-    return (0.00159962) * pow(dist, 3) - 0.41303215 * pow(dist, 2) + 20.83780711 * dist + 103.82640002
+    # return (0.00159962) * pow(dist, 3) - 0.41303215 * pow(dist, 2) + 20.83780711 * dist + 103.82640002
+     return( 0.0135 * pow(dist, 3)) - (1.3578 * pow(dist, 2)) + (44.642  * dist) + 56.627
 
 # -------------------------------
 
@@ -948,7 +950,13 @@ def resample_data():
     # v =  np.array(abs(get_max_vel(y_ree))) 
     v = np.diff(y_ree) / np.diff(x_re)
     # v = np.insert(v, len(v) - 1 , 0.1)
-    v = np.abs(v)
+
+    # pasos por segundo=revoluciones por segundo×PASOS
+    # revoluciones por segundo = v / DistanciaPorRevolucion
+    # pasos por segundo =  (v / 10) * 500
+    # pasos por segundo = 50 × v
+
+    v = np.abs(v * 50) 
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
@@ -1040,21 +1048,23 @@ def adjust_value_amp(increment):
         step = 0
     new_value = round(current_value + step * increment, 2)    
 
-    m_dist = calibrate_slider(new_value, 0, 30, 30, 1015)
+    m_dist = calibrate_slider(new_value, 0, 40, 30, 1023)
 
     amp_real_value = m_dist
     
     if m_dist > 1015:
-        amp_value.set(30.00)
-        amp_real_value = float(30.00)
-        amp_label.configure(text="30.00 mm")
-    elif m_dist < 0 or new_value < 0:
+        amp_value.set(40.00)
+        # freq_value.set( get_max_vel(40.00) )
+        amp_real_value = float(40.00)
+        amp_label.configure(text="40.00 mm")
+    elif m_dist <= 0 or new_value <= 0:
         amp_value.set(0.00)
+        # freq_value.set( 0.00 )
         amp_real_value = float(0.00)
         amp_label.configure(text="0.00 mm")
     else:
-        # print(m_dist)
         amp_value.set(new_value)
+        # freq_value.set( get_max_vel(new_value) )
         amp_real_value = round(float(m_dist), 2)
         amp_label.configure(text=f"{float(new_value):.2f} mm")
     
@@ -1062,6 +1072,7 @@ def adjust_value_freq(increment):
     global amp_real_value, fre_real_value
 
     current_value = freq_value.get()
+
     if freq_10.get():
         step = 10
     elif freq_1.get():
@@ -1072,13 +1083,20 @@ def adjust_value_freq(increment):
         step = 0.01
     else:
         step = 0
-    new_value = round(current_value + step * increment, 2)
-    freq_value.set(new_value)
+    
+    max_vel_amp = get_max_vel(amp_value.get())
 
-    new_speed = new_value * (2 * 3.14)
-
-    fre_real_value = new_speed
-
+    if increment > 0 and current_value >= max_vel_amp:
+        new_value = max_vel_amp
+        freq_value.set(new_value)
+        fre_real_value = new_value
+    else:
+        new_value = round(current_value + step * increment, 2)
+        if new_value < 0:
+            new_value = 0.00
+        freq_value.set(new_value)
+        fre_real_value = new_value
+    
     freq_label.configure(text=f"{float(new_value):.2f} ")
 
 def create_tooltip(widget, text):
@@ -1131,7 +1149,6 @@ def send_simulation_request(ip, filename):
         messagebox.showerror("Error", "La solicitud ha expirado")
     except requests.RequestException as e:
         messagebox.showerror("Error", f"Ocurrió un error: {e}")
-
 
 def stop_simulation():
     pause_loop()
@@ -1372,7 +1389,7 @@ file_list = tk.Listbox(sism_panel, width=40, height=10)
 file_list.grid(row=6, column=0, padx=5)
 file_list.bind('<<ListboxSelect>>', on_listbox_select)
 
-load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#78390c", text="Cargar Datos", command=load_file_data)
+load_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#3e7d23", text="Cargar Datos", command=load_file_data)
 load_button.grid(row=7, column=0, padx=5, pady=3, sticky="we")
 
 delete_button = customtkinter.CTkButton(sism_panel, width=50, height=32, corner_radius=0, fg_color="#ee7218", hover_color="#8f0303", text="Borrar Archivo", command=delete_file_arduino)
@@ -1380,17 +1397,17 @@ delete_button.grid(row=8, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-download_button = customtkinter.CTkButton(sism_panel, height=32, corner_radius=0, fg_color="#3b9415", hover_color="#3e7d23", text="Descargar Archivo")
-download_button.grid(row=9, column=0, padx=5, pady=3, sticky="we")
+# download_button = customtkinter.CTkButton(sism_panel, height=32, corner_radius=0, fg_color="#3b9415", hover_color="#3e7d23", text="Descargar Archivo")
+# download_button.grid(row=9, column=0, padx=5, pady=3, sticky="we")
 
 #----------------------------
 
-customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=10, column=0, padx=5, pady=2, sticky="we")
+customtkinter.CTkFrame(sism_panel, width=1, height=2, fg_color="#d6d6d6").grid(row=9, column=0, padx=5, pady=2, sticky="we")
 
 #----------------------------
 
 sism_text = customtkinter.CTkTextbox(sism_panel, wrap=tk.WORD)
-sism_text.grid(row=11, column=0, padx=5, pady=2 , sticky="we")
+sism_text.grid(row=10, column=0, padx=5, pady=2 , sticky="we")
 
 sism_text.insert(tk.END, "* Se ajusta la cantidad de datos para que puedan ser simulados adecuadamente en la mesa vibradora. Además, la amplitud máxima del evento se reemplaza por el máximo margen permitido de la mesa vibradora.")
 
@@ -1408,8 +1425,8 @@ play_button_2.grid(row=0, column=0)
 reset_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=stop_simulation)
 reset_button_2.grid(row=0, column=1)
 
-save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
-save_button_2.grid(row=0, column=2)
+# save_button_2 = customtkinter.CTkButton(graph_control_2, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
+# save_button_2.grid(row=0, column=2)
 
 # -----------------------------------------------------------------------------------------
 
@@ -1433,8 +1450,8 @@ pause_button.grid(row=0, column=1)
 reset_button = customtkinter.CTkButton(graph_control, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=sstop_img, text="", command=reset_graph)
 reset_button.grid(row=0, column=2)
 
-save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
-save_button.grid(row=0, column=3)
+# save_button = customtkinter.CTkButton(graph_control, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=save_img, text="")
+# save_button.grid(row=0, column=3)
 
 # ---------------------------
 
@@ -1501,7 +1518,9 @@ freq_control_panel.grid(row=0, column=0, sticky="ewns")
 freq_control_panel.grid_columnconfigure(1, weight=1)
 freq_control_panel.grid_rowconfigure(0, weight=1)
 
-customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
+# customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
+
+customtkinter.CTkLabel(freq_control_panel, text="Vel. Motor: ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
 
 freq_value = customtkinter.DoubleVar(value=1.00)
 
@@ -1561,9 +1580,9 @@ customtkinter.CTkLabel(footer, text="Amplitud:" , font=bold_font ).grid(row=0, c
 amp_label  = customtkinter.CTkLabel(footer, text=f"{amp_input.get()} mm")
 amp_label.grid(row=0, column=5, padx=3)
 
-customtkinter.CTkLabel(footer, text="Frecuencia:", font=bold_font).grid(row=0, column=6)
+customtkinter.CTkLabel(footer, text="Vel. Motor:", font=bold_font).grid(row=0, column=6)
 
-freq_label = customtkinter.CTkLabel(footer, text=f"{freq_input.get()} Hz")
+freq_label = customtkinter.CTkLabel(footer, text=f"{freq_input.get()} ")
 freq_label.grid(row=0, column=7, padx=3)
 
 progress_bar = customtkinter.CTkProgressBar(footer, orientation="horizontal", width=100, mode=["determinate"], height=15, corner_radius=0, progress_color="#ee7218")

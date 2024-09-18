@@ -112,11 +112,14 @@ def init():
     amp_val = float(amp_input.get()) if amp_input.get() else 1 
     fre_val = float(freq_input.get()) if freq_input.get() else 1 
 
+    duracion = 1
     x = np.linspace(0, duracion, 1000)
+    
     y = amp_val * np.sin(2 * np.pi * fre_val * x)
+
     ax.plot(x, y, '#ee7218')
 
-    ax.set_xlim(0, 1)
+    ax.set_xlim(0, duracion)
     ax.set_ylim(float(-1.5 * amp_val), float(1.5 * amp_val))
 
     ax.set_xlabel("Tiempo (s)")
@@ -135,13 +138,15 @@ def update(frame):
     if len(ax.texts) > 0:
         ax.texts[-1].remove()
 
-    vertical_line_x = frame * 0.01  
+    duracion = 1
+    vertical_line_x = frame * (duracion / 10) 
+
     if vertical_line_x <= duracion:
         ax.axvline(x=vertical_line_x, color='blue', linestyle='--')
     
     amp_val = float(amp_input.get()) if amp_input.get() else 1
-    # TODO: Añadir freq relativa
     fre_val = float(freq_input.get()) if freq_input.get() else 1
+
     point_y = amp_val * np.sin(2 * np.pi * fre_val * vertical_line_x) 
 
     ax.scatter(vertical_line_x, point_y, color='red', zorder=5) 
@@ -160,8 +165,12 @@ def animate():
     inf = result_data.get("inf", False) if result_data else False
     dur = float(result_data["dur"]) if not inf else 10
     
-    frames = None if inf else int(dur * 100)
-    interval = 1000 / 30 
+    # frames = None if inf else int(dur * 100)
+    # interval = 1000 / 30 
+
+    frames = 100  
+    interval = 0.01 
+
     ani = animation.FuncAnimation(fig, update, init_func=init, frames=frames, interval=interval, blit=False, cache_frame_data=False)
     ani.event_source.stop()
     # canvas.draw()
@@ -169,8 +178,8 @@ def animate():
 def start_animation():
     global ani, result_data, result_conn, amp_real_value, fre_real_value
 
-    amp_l = amp_label.cget("text")[:-3]
-    fre_l = freq_label.cget("text")[:-3]
+    # amp_l = amp_label.cget("text")[:-3]
+    # fre_l = freq_label.cget("text")[:-3]
 
     # print(amp_real_value, fre_real_value) 
 
@@ -180,27 +189,27 @@ def start_animation():
         "dur" : 1,  
         "inf" : False
     }
-    
-    plot_graph_sen()
 
-    if ani is not None:
-        canvas.draw()
-        ani.event_source.start()
-    else:
-        return
+    # plot_graph_sen()
+
+    # if ani is not None:
+    #     canvas.draw()
+    #     ani.event_source.start()
+    # else:
+    #     return
     
     # --------------------------
 
-    # send_info_table()
+    send_info_table()
 
-    # if conn_estab:
-    #     plot_graph_sen()
+    if conn_estab:
+        plot_graph_sen()
 
-    #     if ani is not None:
-    #         canvas.draw()
-    #         ani.event_source.start()
-    # else:
-    #     return
+        if ani is not None:
+            canvas.draw()
+            ani.event_source.start()
+    else:
+        return
     
 def stop_animation():
     global ani
@@ -266,6 +275,13 @@ def dialog_connect_server(root):
                 }
                 img_status.configure(image=onlin_img)
                 status_label.configure(text="Conectado ")
+            elif response.status_code == 404: 
+                result_conn = {
+                    "ip" : ip,
+                }
+                img_status.configure(image=onlin_img)
+                status_label.configure(text="Conectado ")
+                messagebox.showerror("Error", "No se ha encontrado tarjeta SD, Simulacion de Sismo estara Deshabilitado", parent=dialog)
             else:
                 result_conn = None
                 img_status.configure(image=error_img)
@@ -293,25 +309,25 @@ def dialog_connect_server(root):
     dialog.title("Conexion con la Mesa")
 
     dialog.grid_columnconfigure(0, weight=1)
-
+    dialog.grid_columnconfigure(2, weight=1)
     opt_value = tk.StringVar(value="none")
 
     rad_utp = tk.Radiobutton(dialog, text="Conexion Cable UTP", variable=opt_value, value="192.168.1.170", command=radio_change)
-    rad_utp.grid(row=0, column=0)
+    rad_utp.grid(row=0, column=1, sticky="w")
 
     rad_wif = tk.Radiobutton(dialog, text="Conexion WIFI", variable=opt_value, value="192.168.1.160", command=radio_change)
-    rad_wif.grid(row=1, column=0)
+    rad_wif.grid(row=1, column=1, sticky="w")
 
     rad_ent = tk.Radiobutton(dialog, text="Conexion IP", variable=opt_value, value="enable", command=radio_change)
-    rad_ent.grid(row=2, column=0)
+    rad_ent.grid(row=2, column=1, sticky="w")
 
     ip_entry = tk.Entry(dialog)
-    ip_entry.grid(row=3, column=0)
+    ip_entry.grid(row=3, column=1, sticky="we", padx=5)
 
     ip_entry.configure(state="disabled")
 
     submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
-    submit_button.grid(row=4, columnspan=2, padx=5, pady=5, sticky="ew")
+    submit_button.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
 
     center_dialog(dialog, root)
 
@@ -430,8 +446,8 @@ def show_form_dialog():
 def check_result_data():
     if result_data is not None:
         try:
-            amp_label.configure(text=f"{float(result_data["amp"])} mm")
-            freq_label.configure(text=f"{float(result_data["freq"])} hz")
+            # amp_label.configure(text=f"{float(result_data["amp"])} mm")
+            # freq_label.configure(text=f"{float(result_data["freq"])} hz")
             if result_data["inf"]:
                 d = ''
                 # dura_label.configure(text="Infinito")
@@ -475,6 +491,9 @@ def get_files_arduino():
 
                 for file in file_list_response:
                     file_list.insert(tk.END, f'{file["filename"]}')
+            elif response.status_code == 404 :
+                messagebox.showwarning("Advertencia", "No se encuentran archivos, Tiene conectada una tarjeta SD?")
+                return
             else:
                 return
 
@@ -564,7 +583,7 @@ def on_listbox_select(event):
     result_filename = file_list.get(seleccion)
 
 def plot_file_from_arduino():
-    global result_txt_arduino, result_filename
+    global result_txt_arduino, result_filename, numero_lineas
 
     if not result_txt_arduino:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
@@ -595,6 +614,7 @@ def plot_file_from_arduino():
 
     # for a, b, c in zip(ar_x, ar_y, ar_v):
     #     print(a, " -- ", b, " -- ", c)
+    numero_lineas = len(ar_x)
 
     cycles = len(ar_x) - 1
     time =  ar_x[cycles] - ar_x[0]
@@ -798,25 +818,28 @@ def dialog_select_unit(root):
     dialog.title("Conexion con la Mesa")
 
     dialog.grid_columnconfigure(0, weight=1)
+    dialog.grid_columnconfigure(2, weight=1)
 
     opt_value = tk.StringVar(value="none")
 
     rad_utp = tk.Radiobutton(dialog, text="Unidad en Centimetros (cm)", variable=opt_value, value="cm", command=radio_change)
-    rad_utp.grid(row=0, column=0)
+    rad_utp.grid(row=0, column=1, sticky="w")
 
     rad_wif = tk.Radiobutton(dialog, text="Unidad en Milimetros (mm)", variable=opt_value, value="mm", command=radio_change)
-    rad_wif.grid(row=1, column=0)
+    rad_wif.grid(row=1, column=1, sticky="w")
 
     rad_ent = tk.Radiobutton(dialog, text="Unidad en Metros (m)", variable=opt_value, value="m", command=radio_change)
-    rad_ent.grid(row=2, column=0)
+    rad_ent.grid(row=2, column=1, sticky="w")
 
     submit_button = tk.Button(dialog, text="Aplicar", command=on_submit)
-    submit_button.grid(row=3, columnspan=2, padx=5, pady=5, sticky="ew")
+    submit_button.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
 
     center_dialog(dialog, root)
 
 def upload_file_in_chunks():
     global result_txt, result_conn, temp_file, filename_og
+
+    flag_upload = True
 
     if not result_conn:
         messagebox.showwarning("Advertencia", "No se puede establecer conexión o no ingresó IP")
@@ -854,7 +877,8 @@ def upload_file_in_chunks():
             files = {'file': (filename_og, chunk)}
             response = requests.post(f'http://{ip}', files=files)
             if response.status_code != 200:
-                messagebox.showwarning("Advertencia", "Simulacion Terminada")
+                flag_upload = False
+                messagebox.showwarning("Advertencia", "No se puedo Subir Archivo")
                 break
 
             total_sent += len(chunk)
@@ -863,7 +887,9 @@ def upload_file_in_chunks():
             progress_bar.update_idletasks()  
 
         progress_bar.stop()
-        messagebox.showinfo("Completo", "Se enviaron los datos")
+
+        if flag_upload:
+            messagebox.showinfo("Completo", "Se enviaron los datos")
 
     temp_file.close()
     
@@ -885,8 +911,10 @@ def calculate_bytes_for_lines(file, num_lines=1000):
 
     return total_bytes
 
+numero_lineas = 0
+
 def resample_data():
-    global result_txt, temp_file, result_unit
+    global result_txt, temp_file, result_unit, numero_lineas
 
     if not result_txt:
         messagebox.showwarning("Advertencia", "No se encontro datos para Graficar")
@@ -949,14 +977,14 @@ def resample_data():
 
     # v =  np.array(abs(get_max_vel(y_ree))) 
     v = np.diff(y_ree) / np.diff(x_re)
-    # v = np.insert(v, len(v) - 1 , 0.1)
+    v = np.insert(v, 0 , 0)
 
     # pasos por segundo=revoluciones por segundo×PASOS
     # revoluciones por segundo = v / DistanciaPorRevolucion
     # pasos por segundo =  (v / 10) * 500
     # pasos por segundo = 50 × v
 
-    v = np.abs(v * 50) 
+    v = np.abs(v) 
 
     ax_2.plot(x_re, y_ree, '#ee7218')
     # ax_2.plot(x_re,     v, '#1344d6')
@@ -981,7 +1009,7 @@ def resample_data():
 
     for x_val, y_val, v_val in zip(x_re, y_ree, v):
         # print(f"   {x_val}      {y_val}      {v_val:.4f}")
-        temp_file.write(f"   {x_val}      {y_val}      {v_val:.4f}\n")
+        temp_file.write(f"   {x_val}      {y_val}      {int(v_val)}\n")
     # print(" -------------------------------------------- ")
     temp_file.flush()
     
@@ -1032,6 +1060,26 @@ def pause_loop():
 
 # ------------------------------
 
+def check_only_one(selected_var):
+    if selected_var != freq_10:
+        freq_10.set(False)
+    if selected_var != freq_1:
+        freq_1.set(False)
+    if selected_var != freq_0_1:
+        freq_0_1.set(False)
+    if selected_var != freq_0_01:
+        freq_0_01.set(False)
+
+def check_only_one_amp(selected_var):
+    if selected_var != amp_10:
+        amp_10.set(False)
+    if selected_var != amp_1:
+        amp_1.set(False)
+    if selected_var != amp_0_1:
+        amp_0_1.set(False)
+    if selected_var != amp_0_01:
+        amp_0_01.set(False)
+
 def adjust_value_amp(increment):
     global amp_real_value, fre_real_value
 
@@ -1048,25 +1096,27 @@ def adjust_value_amp(increment):
         step = 0
     new_value = round(current_value + step * increment, 2)    
 
-    m_dist = calibrate_slider(new_value, 0, 40, 30, 1023)
+    # m_dist = calibrate_slider(new_value, 0, 40, 30, 1023)
+
+    m_dist = new_value
 
     amp_real_value = m_dist
     
-    if m_dist > 1015:
+    if m_dist > 40: # se cambio de 1015 a 40 
         amp_value.set(40.00)
         # freq_value.set( get_max_vel(40.00) )
         amp_real_value = float(40.00)
-        amp_label.configure(text="40.00 mm")
+        # amp_label.configure(text="40.00 mm")
     elif m_dist <= 0 or new_value <= 0:
         amp_value.set(0.00)
         # freq_value.set( 0.00 )
         amp_real_value = float(0.00)
-        amp_label.configure(text="0.00 mm")
+        # amp_label.configure(text="0.00 mm")
     else:
         amp_value.set(new_value)
         # freq_value.set( get_max_vel(new_value) )
         amp_real_value = round(float(m_dist), 2)
-        amp_label.configure(text=f"{float(new_value):.2f} mm")
+        # amp_label.configure(text=f"{float(new_value):.2f} mm")
     
 def adjust_value_freq(increment):
     global amp_real_value, fre_real_value
@@ -1097,7 +1147,7 @@ def adjust_value_freq(increment):
         freq_value.set(new_value)
         fre_real_value = new_value
     
-    freq_label.configure(text=f"{float(new_value):.2f} ")
+    # freq_label.configure(text=f"{float(new_value):.2f} ")
 
 def create_tooltip(widget, text):
     tooltip = customtkinter.CTkLabel(root, text=text, fg_color="#333332", bg_color="transparent", text_color="white", corner_radius=5)
@@ -1132,9 +1182,13 @@ def start_simulation():
     thread.start()
 
 def send_simulation_request(ip, filename):
+    global numero_lineas
+
+    load_file_data()
+
     send_sim = {
         "filename": filename,
-        "sism": "ss"
+        "sism": numero_lineas
     }
 
     try:
@@ -1273,7 +1327,7 @@ separator_2.grid(row=3, column=0, padx=5, pady=2, sticky="we")
 harm_button = customtkinter.CTkButton(frame, width=32, height=32,  fg_color="transparent", hover_color="#ee7218", image=contr_img, text="", command=lambda: show_frame(frame1))
 harm_button.grid(row=4, column=0, sticky="n")
 
-create_tooltip(harm_button, "Modo Harmonico")
+create_tooltip(harm_button, "Modo de Armonicos")
 
 quake_button = customtkinter.CTkButton(frame, width=32, height=32, fg_color="transparent", hover_color="#ee7218", image=quake_img, text="", command=lambda: show_frame(frame2))
 quake_button.grid(row=5, column=0, sticky="n")
@@ -1351,7 +1405,7 @@ quake_link.bind("<Button-1>", lambda event: webbrowser.open("https://qs.ncn.pe/h
 
 customtkinter.CTkLabel(info_panel, text="NCN | Shake Table Controller", font=bold_font).grid(row=12, column=0, sticky="we")
 
-customtkinter.CTkLabel(info_panel, text="Version 1.0.0").grid(row=13, column=0, sticky="nwe")
+customtkinter.CTkLabel(info_panel, text="Version 1.2.5").grid(row=13, column=0, sticky="nwe")
 
 # -----------------------------------------------------------------------------------------
 
@@ -1500,10 +1554,14 @@ amp_1    = customtkinter.BooleanVar()
 amp_0_1  = customtkinter.BooleanVar()
 amp_0_01 = customtkinter.BooleanVar()
 
-amp_ten  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=amp_10).grid(sticky="ns", row=1, column=0, padx=5)
-amp_one  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=amp_1).grid(sticky="ns", row=1, column=1, padx=5)
-amp_done = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=amp_0_1).grid(sticky="ns", row=1, column=2, padx=5)
-amp_dten = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=amp_0_01).grid(sticky="ns", row=1, column=3)
+amp_ten  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=amp_10,command=lambda: check_only_one_amp(amp_10))
+amp_ten.grid(sticky="ns", row=1, column=0, padx=5)
+amp_one  = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=amp_1,command=lambda: check_only_one_amp(amp_1))
+amp_one.grid(sticky="ns", row=1, column=1, padx=5)
+amp_done = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=amp_0_1,command=lambda: check_only_one_amp(amp_0_1))
+amp_done.grid(sticky="ns", row=1, column=2, padx=5)
+amp_dten = customtkinter.CTkCheckBox(amp_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=amp_0_01,command=lambda: check_only_one_amp(amp_0_01))
+amp_dten.grid(sticky="ns", row=1, column=3)
 
 # ----------------------------------------------------------------------------------------------------------------
 
@@ -1520,7 +1578,7 @@ freq_control_panel.grid_rowconfigure(0, weight=1)
 
 # customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
 
-customtkinter.CTkLabel(freq_control_panel, text="Vel. Motor: ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
+customtkinter.CTkLabel(freq_control_panel, text="Frecuencia (Hz): ", font=bold_font, bg_color="transparent" ).grid(row=0, column=1)
 
 freq_value = customtkinter.DoubleVar(value=1.00)
 
@@ -1547,10 +1605,14 @@ freq_1    = customtkinter.BooleanVar()
 freq_0_1  = customtkinter.BooleanVar()
 freq_0_01 = customtkinter.BooleanVar()
 
-freq_ten  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=freq_10).grid(sticky="ns", row=1, column=0, padx=5)
-freq_one  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=freq_1).grid(sticky="ns", row=1, column=1, padx=5)
-freq_done = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=freq_0_1).grid(sticky="ns", row=1, column=2, padx=5)
-freq_dten = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=freq_0_01).grid(sticky="ns", row=1, column=3)
+freq_ten  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="10"  , variable=freq_10,command=lambda: check_only_one(freq_10))
+freq_ten.grid(sticky="ns", row=1, column=0, padx=5)
+freq_one  = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="1"   , variable=freq_1, command=lambda: check_only_one(freq_1))
+freq_one.grid(sticky="ns", row=1, column=1, padx=5)
+freq_done = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.1" , variable=freq_0_1, command=lambda: check_only_one(freq_0_1))
+freq_done.grid(sticky="ns", row=1, column=2, padx=5)
+freq_dten = customtkinter.CTkCheckBox(freq_nro_panel, corner_radius=0, width=60, fg_color="#ee7218", hover_color="#78390c", text="0.01", variable=freq_0_01, command=lambda: check_only_one(freq_0_01))
+freq_dten.grid(sticky="ns", row=1, column=3)
 
 # ----------------------------------------------------------------------------------------------------------------
 
@@ -1575,15 +1637,15 @@ customtkinter.CTkLabel(footer, text="|" , font=bold_font ).grid(row=0, column=3,
 
 # --------------------------
 
-customtkinter.CTkLabel(footer, text="Amplitud:" , font=bold_font ).grid(row=0, column=4)
+# customtkinter.CTkLabel(footer, text="Amplitud:" , font=bold_font ).grid(row=0, column=4)
 
-amp_label  = customtkinter.CTkLabel(footer, text=f"{amp_input.get()} mm")
-amp_label.grid(row=0, column=5, padx=3)
+# amp_label  = customtkinter.CTkLabel(footer, text=f"{amp_input.get()} mm")
+# amp_label.grid(row=0, column=5, padx=3)
 
-customtkinter.CTkLabel(footer, text="Vel. Motor:", font=bold_font).grid(row=0, column=6)
+# customtkinter.CTkLabel(footer, text="Vel. Motor:", font=bold_font).grid(row=0, column=6)
 
-freq_label = customtkinter.CTkLabel(footer, text=f"{freq_input.get()} ")
-freq_label.grid(row=0, column=7, padx=3)
+# freq_label = customtkinter.CTkLabel(footer, text=f"{freq_input.get()} ")
+# freq_label.grid(row=0, column=7, padx=3)
 
 progress_bar = customtkinter.CTkProgressBar(footer, orientation="horizontal", width=100, mode=["determinate"], height=15, corner_radius=0, progress_color="#ee7218")
 progress_bar.grid(row=0, column=8, padx=5)
